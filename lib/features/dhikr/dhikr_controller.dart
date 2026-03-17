@@ -1,18 +1,13 @@
 // 📂 File: lib/features/dhikr/dhikr_controller.dart
-
 import 'package:flutter/material.dart';
-
-class CustomDhikr {
-  String id;
-  String text;
-  int count;
-
-  CustomDhikr({required this.id, required this.text, this.count = 0});
-}
+import 'package:hive_flutter/hive_flutter.dart';
+import '../../core/models/app_models.dart';
 
 class DhikrController extends ChangeNotifier {
-  List<CustomDhikr> dhikrs = []; // ഡിഫോൾട്ട് ഒന്നുമില്ല
+  final Box<CustomDhikr> _dhikrBox = Hive.box<CustomDhikr>('dhikrsBox');
   String? selectedDhikrId;
+
+  List<CustomDhikr> get dhikrs => _dhikrBox.values.toList();
 
   CustomDhikr? get selectedDhikr {
     if (selectedDhikrId == null || dhikrs.isEmpty) return null;
@@ -31,28 +26,38 @@ class DhikrController extends ChangeNotifier {
   void increment() {
     if (selectedDhikr != null) {
       selectedDhikr!.count++;
+      selectedDhikr!.save(); // ഡാറ്റാബേസിലേക്ക് സേവ് ആകുന്നു
       notifyListeners();
     }
   }
 
   void addDhikr(String text) {
     final newId = DateTime.now().toString();
-    dhikrs.add(CustomDhikr(id: newId, text: text));
-    selectedDhikrId = newId; // പുതിയത് ആഡ് ചെയ്താൽ അത് സെലക്ട് ആകും
+    final newDhikr = CustomDhikr(id: newId, text: text, count: 0);
+    _dhikrBox.put(newId, newDhikr);
+    selectedDhikrId = newId;
     notifyListeners();
   }
 
   void editDhikr(String id, String newText) {
-    var d = dhikrs.firstWhere((d) => d.id == id);
-    d.text = newText;
-    notifyListeners();
+    var d = _dhikrBox.get(id);
+    if (d != null) {
+      d.text = newText;
+      d.save();
+      notifyListeners();
+    }
   }
 
   void deleteDhikr(String id) {
-    dhikrs.removeWhere((d) => d.id == id);
+    _dhikrBox.delete(id);
     if (selectedDhikrId == id) {
       selectedDhikrId = dhikrs.isNotEmpty ? dhikrs.first.id : null;
     }
     notifyListeners();
+  }
+
+  // ഡാഷ്‌ബോർഡിന് വേണ്ടി ഇന്നത്തെ ആകെ ദിക്റുകൾ
+  int getTotalDhikrCount() {
+    return dhikrs.fold(0, (sum, item) => sum + item.count);
   }
 }
