@@ -25,9 +25,13 @@ class NotesListView extends StatelessWidget {
               itemBuilder: (context, index) {
                 final note = ctrl.notes[index];
                 IconData icon;
-                if (note.type == 'image') icon = Icons.image;
-                else if (note.type == 'pdf') icon = Icons.picture_as_pdf;
-                else icon = Icons.text_snippet;
+                if (note.type == 'image') {
+                  icon = Icons.image;
+                } else if (note.type == 'pdf') {
+                  icon = Icons.picture_as_pdf;
+                } else {
+                  icon = Icons.text_snippet;
+                }
 
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -35,11 +39,10 @@ class NotesListView extends StatelessWidget {
                     leading: CircleAvatar(child: Icon(icon)),
                     title: Text(note.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(note.type.toUpperCase()),
-                    // വലതുവശത്തെ 3-ഡോട്ട് മെനു
                     trailing: PopupMenuButton<String>(
                       onSelected: (val) {
                         if (val == 'edit') {
-                          // Edit logic
+                          // Edit logic will be added later
                         } else if (val == 'delete') {
                           ctrl.deleteNote(note.id);
                         }
@@ -50,14 +53,12 @@ class NotesListView extends StatelessWidget {
                       ],
                     ),
                     onTap: () {
-                      // ഫയൽ വ്യൂ ചെയ്യാനുള്ള ലോജിക് ഇവിടെ വരും
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Viewing feature coming soon')));
                     },
                   ),
                 );
               },
             ),
-      // ടെക്സ്റ്റ്, ഇമേജ്, PDF ആഡ് ചെയ്യാൻ
       floatingActionButton: FloatingActionButton(
         onPressed: () {
            _showAddOptions(context, ctrl);
@@ -85,7 +86,7 @@ class NotesListView extends StatelessWidget {
             title: const Text('Add Image'),
             onTap: () {
               Navigator.pop(context);
-              ctrl.addNote('Image Attachment', 'image', 'path/to/image'); // Image picker ലോജിക് പിന്നീട് വരും
+              ctrl.addNote('Image Attachment', 'image', 'path/to/image');
             },
           ),
           ListTile(
@@ -93,7 +94,7 @@ class NotesListView extends StatelessWidget {
             title: const Text('Add PDF'),
             onTap: () {
               Navigator.pop(context);
-              ctrl.addNote('PDF Document', 'pdf', 'path/to/pdf'); // PDF picker ലോജിക് പിന്നീട് വരും
+              ctrl.addNote('PDF Document', 'pdf', 'path/to/pdf');
             },
           ),
         ],
