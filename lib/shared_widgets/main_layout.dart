@@ -1,13 +1,12 @@
 // 📂 File: lib/shared_widgets/main_layout.dart
-// പഴയ main_layout.dart പൂർണ്ണമായും മാറ്റി ഇത് നൽകുക
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/localization/app_localizations.dart';
+import '../features/dashboard/dashboard_view.dart';
 import '../features/prayer/prayer_view.dart';
 import '../features/dhikr/dhikr_list_view.dart';
-import '../features/habits/habit_list_view.dart';
 import '../features/notes/notes_list_view.dart';
 import '../features/settings/settings_view.dart';
 
@@ -22,16 +21,15 @@ class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = const [
+    DashboardView(), // Habits മാറി Dashboard ആയി
     PrayerView(),
     DhikrListView(),
-    HabitListView(),
     NotesListView(),
     SettingsView(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    // ഭാഷകൾ എടുക്കാൻ പ്രൊവൈഡർ വിളിക്കുന്നു
     final lang = Provider.of<AppLanguageProvider>(context);
 
     return Scaffold(
@@ -48,18 +46,18 @@ class _MainLayoutState extends State<MainLayout> {
         },
         destinations: [
           NavigationDestination(
+            icon: const Icon(Icons.dashboard_outlined),
+            selectedIcon: const Icon(Icons.dashboard),
+            label: lang.translate('tab_dashboard'),
+          ),
+          NavigationDestination(
             icon: const Icon(Icons.mosque_outlined),
             selectedIcon: const Icon(Icons.mosque),
-            label: lang.translate('tab_prayer'), // ഭാഷ മാറുമ്പോൾ ഈ പേരും മാറും
+            label: lang.translate('tab_prayer'),
           ),
           NavigationDestination(
             icon: const Icon(Icons.fingerprint),
             label: lang.translate('tab_dhikr'),
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.check_circle_outline),
-            selectedIcon: const Icon(Icons.check_circle),
-            label: lang.translate('tab_habits'),
           ),
           NavigationDestination(
             icon: const Icon(Icons.edit_note_outlined),
