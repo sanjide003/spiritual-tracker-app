@@ -1,45 +1,75 @@
+// 📂 File: lib/core/models/app_models.dart
+// Hive ഡാറ്റാബേസിൽ ഡാറ്റ സേവ് ചെയ്യാനുള്ള മോഡലുകൾ (Tables)
+
 import 'package:hive/hive.dart';
 
+part 'app_models.g.dart'; // ഇത് Hive ഓട്ടോമാറ്റിക് ആയി ജനറേറ്റ് ചെയ്യുന്ന ഫയലാണ് (കമാൻഡ് റൺ ചെയ്യണം)
+
 // 1. സുന്നത്ത് നിസ്കാരങ്ങൾക്കുള്ള മോഡൽ
-class CustomPrayer {
+@HiveType(typeId: 0)
+class CustomPrayer extends HiveObject {
+  @HiveField(0)
   String id;
+
+  @HiveField(1)
   String name;
+
+  @HiveField(2)
   int rakah;
+
+  @HiveField(3)
   bool isCompleted;
 
-  CustomPrayer({required this.id, required this.name, required this.rakah, this.isCompleted = false});
+  @HiveField(4)
+  String date; // ഏത് ദിവസത്തെ നിസ്കാരമാണ് എന്ന് സേവ് ചെയ്യാൻ
 
-  Map<String, dynamic> toMap() => {'id': id, 'name': name, 'rakah': rakah, 'isCompleted': isCompleted};
-  factory CustomPrayer.fromMap(Map<dynamic, dynamic> map) => CustomPrayer(
-    id: map['id'], name: map['name'], rakah: map['rakah'], isCompleted: map['isCompleted'] ?? false,
-  );
+  CustomPrayer({
+    required this.id,
+    required this.name,
+    required this.rakah,
+    this.isCompleted = false,
+    required this.date,
+  });
 }
 
 // 2. ദിക്റുകൾക്കുള്ള മോഡൽ
-class CustomDhikr {
+@HiveType(typeId: 1)
+class CustomDhikr extends HiveObject {
+  @HiveField(0)
   String id;
+
+  @HiveField(1)
   String text;
+
+  @HiveField(2)
   int count;
 
-  CustomDhikr({required this.id, required this.text, this.count = 0});
-
-  Map<String, dynamic> toMap() => {'id': id, 'text': text, 'count': count};
-  factory CustomDhikr.fromMap(Map<dynamic, dynamic> map) => CustomDhikr(
-    id: map['id'], text: map['text'], count: map['count'] ?? 0,
-  );
+  CustomDhikr({
+    required this.id,
+    required this.text,
+    this.count = 0,
+  });
 }
 
-// 3. നോട്ട്സുകൾക്കുള്ള മോഡൽ
-class NoteItem {
+// 3. നോട്ട്സ്/ജേണൽ മോഡൽ
+@HiveType(typeId: 2)
+class NoteItem extends HiveObject {
+  @HiveField(0)
   String id;
+
+  @HiveField(1)
   String title;
+
+  @HiveField(2)
   String content;
-  String type;
 
-  NoteItem({required this.id, required this.title, required this.content, required this.type});
+  @HiveField(3)
+  String type; // text, image, pdf
 
-  Map<String, dynamic> toMap() => {'id': id, 'title': title, 'content': content, 'type': type};
-  factory NoteItem.fromMap(Map<dynamic, dynamic> map) => NoteItem(
-    id: map['id'], title: map['title'], content: map['content'], type: map['type'],
-  );
+  NoteItem({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.type,
+  });
 }
