@@ -1,5 +1,4 @@
 // 📂 File: lib/main.dart
-// പഴയത് മാറ്റി ഈ പുതിയ main.dart നൽകുക
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,8 +10,7 @@ import 'core/localization/app_localizations.dart';
 import 'shared_widgets/main_layout.dart';
 import 'features/prayer/prayer_controller.dart';
 import 'features/dhikr/dhikr_controller.dart';
-import 'features/habits/habit_controller.dart'; // New
-import 'features/notes/notes_controller.dart'; // New
+import 'features/notes/notes_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,8 +31,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AppLanguageProvider()),
         ChangeNotifierProvider(create: (_) => PrayerController()),
         ChangeNotifierProvider(create: (_) => DhikrController()),
-        ChangeNotifierProvider(create: (_) => HabitController()), // New
-        ChangeNotifierProvider(create: (_) => NotesController()), // New
+        ChangeNotifierProvider(create: (_) => NotesController()),
+        // HabitController ഇവിടെ നിന്നും ഒഴിവാക്കി
       ],
       child: const SpiritualTrackerApp(),
     ),
