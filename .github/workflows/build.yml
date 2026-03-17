@@ -1,0 +1,68 @@
+name: Build App (Custom Name)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      # ഐക്കൺ ജനറേറ്റ് ചെയ്യുന്നു (നേരത്തെ ചെയ്തത് പോലെ)
+      - name: Generate App Icons
+        run: dart run flutter_launcher_icons
+
+      # 1. ആപ്പ് ബിൽഡ് ചെയ്യുന്നു
+      - name: Build Split APKs
+        run: flutter build apk --release --split-per-abi
+
+      # 2. ഫയലിന്റെ പേര് മാറ്റുന്നു (Rename Step)
+      # ഇവിടെ 'SanjidApp.apk' എന്നത് മാറ്റി നിങ്ങൾക്ക് ഇഷ്ടമുള്ള പേര് നൽകാം (ഉദാ: MyCounter.apk)
+      # ശ്രദ്ധിക്കുക: പേരിൽ സ്പേസ് (Space) ഇടരുത്.
+      - name: Rename APK
+        run: mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/SanjidApp.apk
+
+      # 3. വെബ്സൈറ്റ് ബിൽഡ് ചെയ്യുന്നു
+      - name: Build Web
+        run: flutter build web --release --base-href "/sanjid-app-flutter-model-/"
+
+      # 4. വെബ്സൈറ്റ് അപ്‌ലോഡ് ചെയ്യുന്നു
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
+
+      # 5. പുതിയ പേരിലുള്ള APK റിലീസ് ചെയ്യുന്നു
+      # ഇവിടെയും പേര് മാറ്റാൻ മറക്കരുത് (SanjidApp.apk)
+      - name: Create Release & Upload APK
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/app/outputs/flutter-apk/SanjidApp.apk"
+          tag: "v1.0.${{ github.run_number }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          replacesArtifacts: true
