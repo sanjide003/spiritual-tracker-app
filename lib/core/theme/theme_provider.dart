@@ -1,4 +1,5 @@
 // 📂 File: lib/core/theme/theme_provider.dart
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -8,15 +9,15 @@ class ThemeProvider extends ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
 
   ThemeProvider() {
-    // ആപ്പ് തുടങ്ങുമ്പോൾ സേവ് ചെയ്ത തീം എടുക്കാൻ
-    var box = Hive.box<Map>('defaultPrayersBox'); // Settings സേവ് ചെയ്യാനും ഈ ബോക്സ് ഉപയോഗിക്കാം
+    // ജനറൽ ആയ 'settingsBox' ഉപയോഗിക്കുന്നു
+    var box = Hive.box('settingsBox'); 
     _isDarkMode = box.get('isDarkMode', defaultValue: false) as bool;
   }
 
   void toggleTheme() {
     _isDarkMode = !_isDarkMode;
-    var box = Hive.box<Map>('defaultPrayersBox');
-    box.put('isDarkMode', _isDarkMode);
+    var box = Hive.box('settingsBox');
+    box.put('isDarkMode', _isDarkMode); // ഇപ്പോൾ എറർ വരില്ല
     notifyListeners();
   }
 }
