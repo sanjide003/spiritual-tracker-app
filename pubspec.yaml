@@ -1,5 +1,4 @@
 # 📂 File: pubspec.yaml
-# നിലവിലുള്ള pubspec.yaml പൂർണ്ണമായും മാറ്റി ഇത് നൽകുക
 
 name: spiritual_tracker_app
 description: "A new Flutter project for spiritual tracking."
@@ -15,13 +14,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  # State Management
   provider: ^6.1.1
-  
-  # Firebase Services
   firebase_core: ^2.24.2
-  
-  # Local Database
   hive: ^2.2.3
   hive_flutter: ^1.1.0
 
@@ -29,6 +23,14 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1 # Error പരിഹരിക്കാൻ ഇത് ആഡ് ചെയ്തു
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon.png"
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon.png
