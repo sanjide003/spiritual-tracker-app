@@ -1,11 +1,14 @@
+// 📂 File: lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
+import 'services/database_service.dart'; // പുതിയതായി ആഡ് ചെയ്തു
 import 'core/localization/app_localizations.dart';
 import 'shared_widgets/main_layout.dart';
+
 import 'features/prayer/prayer_controller.dart';
 import 'features/dhikr/dhikr_controller.dart';
 import 'features/notes/notes_controller.dart';
@@ -21,11 +24,8 @@ void main() async {
     debugPrint('Firebase Initialization Error: $e');
   }
 
-  // Hive Initialize ചെയ്യുകയും ബോക്സുകൾ ഓപ്പൺ ചെയ്യുകയും ചെയ്യുന്നു
-  await Hive.initFlutter();
-  await Hive.openBox('prayerBox');
-  await Hive.openBox('dhikrBox');
-  await Hive.openBox('notesBox');
+  // Hive ഡാറ്റാബേസ് സ്റ്റാർട്ട് ചെയ്യുന്നു
+  await DatabaseService.initDatabase();
 
   runApp(
     MultiProvider(
