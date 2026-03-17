@@ -1,9 +1,10 @@
 // 📂 File: lib/shared_widgets/main_layout.dart
-// താഴെ കാണുന്ന 5 ടാബുകൾ ഉള്ള നാവിഗേഷൻ ബാർ ഇതാണ്.
+// പഴയ main_layout.dart പൂർണ്ണമായും മാറ്റി ഇത് നൽകുക
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-// മറ്റ് സ്ക്രീനുകൾ ഇമ്പോർട്ട് ചെയ്യുന്നു
+import '../core/localization/app_localizations.dart';
 import '../features/prayer/prayer_view.dart';
 import '../features/dhikr/dhikr_list_view.dart';
 import '../features/habits/habit_list_view.dart';
@@ -20,7 +21,6 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
 
-  // ഓരോ ടാബിലും കാണിക്കേണ്ട സ്ക്രീനുകളുടെ ലിസ്റ്റ്
   final List<Widget> _screens = const [
     PrayerView(),
     DhikrListView(),
@@ -31,8 +31,10 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
+    // ഭാഷകൾ എടുക്കാൻ പ്രൊവൈഡർ വിളിക്കുന്നു
+    final lang = Provider.of<AppLanguageProvider>(context);
+
     return Scaffold(
-      // ഒരു ടാബിൽ നിന്ന് മറ്റൊന്നിലേക്ക് പോകുമ്പോൾ ഡാറ്റ മാഞ്ഞുപോകാതിരിക്കാൻ IndexedStack ഉപയോഗിക്കുന്നു
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
@@ -44,30 +46,30 @@ class _MainLayoutState extends State<MainLayout> {
             _currentIndex = index;
           });
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.mosque_outlined),
-            selectedIcon: Icon(Icons.mosque),
-            label: 'Prayer',
+            icon: const Icon(Icons.mosque_outlined),
+            selectedIcon: const Icon(Icons.mosque),
+            label: lang.translate('tab_prayer'), // ഭാഷ മാറുമ്പോൾ ഈ പേരും മാറും
           ),
           NavigationDestination(
-            icon: Icon(Icons.fingerprint),
-            label: 'Dhikr',
+            icon: const Icon(Icons.fingerprint),
+            label: lang.translate('tab_dhikr'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            selectedIcon: Icon(Icons.check_circle),
-            label: 'Habits',
+            icon: const Icon(Icons.check_circle_outline),
+            selectedIcon: const Icon(Icons.check_circle),
+            label: lang.translate('tab_habits'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.edit_note_outlined),
-            selectedIcon: Icon(Icons.edit_note),
-            label: 'Notes',
+            icon: const Icon(Icons.edit_note_outlined),
+            selectedIcon: const Icon(Icons.edit_note),
+            label: lang.translate('tab_notes'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: lang.translate('tab_settings'),
           ),
         ],
       ),
