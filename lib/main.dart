@@ -1,5 +1,3 @@
-// 📂 File: lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -23,7 +21,11 @@ void main() async {
     debugPrint('Firebase Initialization Error: $e');
   }
 
+  // Hive Initialize ചെയ്യുകയും ബോക്സുകൾ ഓപ്പൺ ചെയ്യുകയും ചെയ്യുന്നു
   await Hive.initFlutter();
+  await Hive.openBox('prayerBox');
+  await Hive.openBox('dhikrBox');
+  await Hive.openBox('notesBox');
 
   runApp(
     MultiProvider(
@@ -32,7 +34,6 @@ void main() async {
         ChangeNotifierProvider(create: (_) => PrayerController()),
         ChangeNotifierProvider(create: (_) => DhikrController()),
         ChangeNotifierProvider(create: (_) => NotesController()),
-        // HabitController ഇവിടെ നിന്നും ഒഴിവാക്കി
       ],
       child: const SpiritualTrackerApp(),
     ),
