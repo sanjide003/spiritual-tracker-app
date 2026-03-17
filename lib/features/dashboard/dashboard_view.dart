@@ -28,9 +28,9 @@ class DashboardView extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                _buildSummaryCard(context, 'Pending Qadha', '15', Colors.orange),
+                _buildSummaryCard(context, 'Pending Qadha', '0', Colors.orange),
                 const SizedBox(width: 16),
-                _buildSummaryCard(context, 'Dhikr Count', '120', Colors.teal),
+                _buildSummaryCard(context, 'Dhikr Count', '0', Colors.teal),
               ],
             ),
             const SizedBox(height: 32),
@@ -47,7 +47,7 @@ class DashboardView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Center(
-                  child: Text('Progress Graph will appear here'),
+                  child: Text('Progress Graph \n(Coming Soon)', textAlign: TextAlign.center),
                 ),
               ),
             ),
@@ -68,7 +68,7 @@ class DashboardView extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(title, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.w600)),
+            Text(title, style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Text(count, style: TextStyle(fontSize: 32, color: color, fontWeight: FontWeight.bold)),
           ],
