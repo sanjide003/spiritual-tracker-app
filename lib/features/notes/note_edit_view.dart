@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import 'notes_controller.dart';
 
 class NoteEditView extends StatelessWidget {
-  const NoteEditView({super.key});
+  const NoteEditView({super.key, this.folderId = NotesController.defaultFolderId});
+
+  final String folderId;
 
   @override
   Widget build(BuildContext context) {
@@ -20,9 +22,9 @@ class NoteEditView extends StatelessWidget {
             icon: const Icon(Icons.check),
             onPressed: () async {
               if (titleCtrl.text.isNotEmpty && contentCtrl.text.isNotEmpty) {
-                await notesCtrl.addNote(
+                await notesCtrl.addTextNote(
+                  folderId: folderId,
                   title: titleCtrl.text,
-                  type: 'text',
                   content: contentCtrl.text,
                 );
                 if (context.mounted) Navigator.pop(context);

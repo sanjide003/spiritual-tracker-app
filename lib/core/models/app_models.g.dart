@@ -103,13 +103,15 @@ class NoteItemAdapter extends TypeAdapter<NoteItem> {
       title: fields[1] as String,
       content: fields[2] as String,
       type: fields[3] as String,
+      folderId: fields[4] as String,
+      fileSizeBytes: fields[5] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, NoteItem obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -117,7 +119,11 @@ class NoteItemAdapter extends TypeAdapter<NoteItem> {
       ..writeByte(2)
       ..write(obj.content)
       ..writeByte(3)
-      ..write(obj.type);
+      ..write(obj.type)
+      ..writeByte(4)
+      ..write(obj.folderId)
+      ..writeByte(5)
+      ..write(obj.fileSizeBytes);
   }
 
   @override
@@ -127,6 +133,43 @@ class NoteItemAdapter extends TypeAdapter<NoteItem> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is NoteItemAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class NoteFolderAdapter extends TypeAdapter<NoteFolder> {
+  @override
+  final int typeId = 3;
+
+  @override
+  NoteFolder read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return NoteFolder(
+      id: fields[0] as String,
+      name: fields[1] as String,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, NoteFolder obj) {
+    writer
+      ..writeByte(2)
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.name);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NoteFolderAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

@@ -1,11 +1,7 @@
-// 📂 File: lib/core/models/app_models.dart
-// Hive ഡാറ്റാബേസിൽ ഡാറ്റ സേവ് ചെയ്യാനുള്ള മോഡലുകൾ (Tables)
-
 import 'package:hive/hive.dart';
 
-part 'app_models.g.dart'; // ഇത് Hive ഓട്ടോമാറ്റിക് ആയി ജനറേറ്റ് ചെയ്യുന്ന ഫയലാണ് (കമാൻഡ് റൺ ചെയ്യണം)
+part 'app_models.g.dart';
 
-// 1. സുന്നത്ത് നിസ്കാരങ്ങൾക്കുള്ള മോഡൽ
 @HiveType(typeId: 0)
 class CustomPrayer extends HiveObject {
   @HiveField(0)
@@ -21,7 +17,7 @@ class CustomPrayer extends HiveObject {
   bool isCompleted;
 
   @HiveField(4)
-  String date; // ഏത് ദിവസത്തെ നിസ്കാരമാണ് എന്ന് സേവ് ചെയ്യാൻ
+  String date;
 
   CustomPrayer({
     required this.id,
@@ -32,7 +28,6 @@ class CustomPrayer extends HiveObject {
   });
 }
 
-// 2. ദിക്റുകൾക്കുള്ള മോഡൽ
 @HiveType(typeId: 1)
 class CustomDhikr extends HiveObject {
   @HiveField(0)
@@ -51,7 +46,6 @@ class CustomDhikr extends HiveObject {
   });
 }
 
-// 3. നോട്ട്സ്/ജേണൽ മോഡൽ
 @HiveType(typeId: 2)
 class NoteItem extends HiveObject {
   @HiveField(0)
@@ -64,12 +58,34 @@ class NoteItem extends HiveObject {
   String content;
 
   @HiveField(3)
-  String type; // text, image, pdf
+  String type;
+
+  @HiveField(4)
+  String folderId;
+
+  @HiveField(5)
+  int fileSizeBytes;
 
   NoteItem({
     required this.id,
     required this.title,
     required this.content,
     required this.type,
+    required this.folderId,
+    this.fileSizeBytes = 0,
+  });
+}
+
+@HiveType(typeId: 3)
+class NoteFolder extends HiveObject {
+  @HiveField(0)
+  String id;
+
+  @HiveField(1)
+  String name;
+
+  NoteFolder({
+    required this.id,
+    required this.name,
   });
 }

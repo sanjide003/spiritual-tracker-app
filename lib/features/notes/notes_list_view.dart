@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -19,12 +20,20 @@ class NotesListView extends StatefulWidget {
 
 class _NotesListViewState extends State<NotesListView> {
   String _selectedFilter = 'all';
+  String _selectedFolderId = NotesController.defaultFolderId;
 
   @override
   Widget build(BuildContext context) {
     final ctrl = Provider.of<NotesController>(context);
     final lang = Provider.of<AppLanguageProvider>(context);
-    final filteredNotes = ctrl.notesByType(_selectedFilter);
+    final folders = ctrl.folders;
+
+    if (folders.isNotEmpty && !folders.any((folder) => folder.id == _selectedFolderId)) {
+      _selectedFolderId = folders.first.id;
+    }
+
+    final filteredNotes = ctrl.notesFor(folderId: _selectedFolderId, filter: _selectedFilter);
+    final selectedFolder = folders.where((folder) => folder.id == _selectedFolderId).firstOrNull;
 
     return Scaffold(
       appBar: AppBar(title: Text(lang.translate('tab_notes')), centerTitle: true),
@@ -32,6 +41,39 @@ class _NotesListViewState extends State<NotesListView> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final folder in folders)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: InputChip(
+                              label: Text(folder.name),
+                              selected: folder.id == _selectedFolderId,
+                              onSelected: (_) => setState(() => _selectedFolderId = folder.id),
+                              onPressed: () => setState(() => _selectedFolderId = folder.id),
+                              onLongPress: () => _showFolderDialog(context, ctrl, existingFolder: folder),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: () => _showFolderDialog(context, ctrl),
+                  icon: const Icon(Icons.create_new_folder),
+                  label: const Text('Folder'),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: [
                 Expanded(
@@ -47,18 +89,28 @@ class _NotesListViewState extends State<NotesListView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                FilledButton.icon(
-                  onPressed: () => _showAddOptions(context, ctrl),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add'),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: selectedFolder == null ? null : () => _showAddOptions(context, ctrl),
+                  child: const Icon(Icons.add),
                 ),
               ],
             ),
           ),
+          if (selectedFolder != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Folder: ${selectedFolder.name}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
           Expanded(
             child: filteredNotes.isEmpty
-                ? const Center(child: Text('No items in this section yet.'))
+                ? const Center(child: Text('No items in this folder yet.'))
                 : ListView.builder(
                     itemCount: filteredNotes.length,
                     itemBuilder: (context, index) {
@@ -67,19 +119,17 @@ class _NotesListViewState extends State<NotesListView> {
                         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: ListTile(
                           leading: CircleAvatar(child: Icon(_iconForType(note.type))),
-                          title: Text(
-                            note.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(note.type.toUpperCase()),
+                          title: Text(note.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(_subtitleForNote(note)),
                           trailing: PopupMenuButton<String>(
                             onSelected: (value) => _handleMenuAction(context, ctrl, note, value),
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(value: 'open', child: Text('Open')),
-                              PopupMenuItem(value: 'rename', child: Text('Rename')),
-                              PopupMenuItem(value: 'edit_text', child: Text('Edit Text')),
-                              PopupMenuItem(value: 'share', child: Text('Share')),
-                              PopupMenuItem(
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(value: 'open', child: Text('Open')),
+                              const PopupMenuItem(value: 'rename', child: Text('Rename')),
+                              if (note.type == 'text')
+                                const PopupMenuItem(value: 'edit_text', child: Text('Edit Text')),
+                              const PopupMenuItem(value: 'share', child: Text('Share')),
+                              const PopupMenuItem(
                                 value: 'delete',
                                 child: Text('Delete', style: TextStyle(color: Colors.red)),
                               ),
@@ -118,6 +168,12 @@ class _NotesListViewState extends State<NotesListView> {
     }
   }
 
+  String _subtitleForNote(NoteItem note) {
+    if (note.type == 'text') return 'TEXT';
+    final sizeMb = note.fileSizeBytes / (1024 * 1024);
+    return '${note.type.toUpperCase()} • ${sizeMb.toStringAsFixed(2)} MB';
+  }
+
   Future<void> _handleMenuAction(
     BuildContext context,
     NotesController ctrl,
@@ -132,9 +188,7 @@ class _NotesListViewState extends State<NotesListView> {
         _showRenameDialog(context, ctrl, note);
         break;
       case 'edit_text':
-        if (note.type == 'text') {
-          _showTextEditor(context, ctrl, existingNote: note);
-        }
+        _showTextEditor(context, ctrl, existingNote: note);
         break;
       case 'share':
         await _shareNote(note);
@@ -151,11 +205,18 @@ class _NotesListViewState extends State<NotesListView> {
       return;
     }
 
-    final file = XFile(note.content);
-    await Share.shareXFiles([file], text: note.title);
+    await Share.shareXFiles([XFile(note.content)], text: note.title);
   }
 
   void _viewNote(BuildContext context, NoteItem note) {
+    if (note.type == 'pdf') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => _PdfPreviewPage(note: note)),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -165,16 +226,12 @@ class _NotesListViewState extends State<NotesListView> {
           child: SingleChildScrollView(
             child: switch (note.type) {
               'image' => Image.file(File(note.content)),
-              'pdf' => Text(note.content),
               _ => SelectableText(note.content),
             },
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
         ],
       ),
     );
@@ -195,7 +252,7 @@ class _NotesListViewState extends State<NotesListView> {
           ),
           ListTile(
             leading: const Icon(Icons.image),
-            title: const Text('Add Image'),
+            title: const Text('Upload Image'),
             onTap: () async {
               Navigator.pop(context);
               final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -211,7 +268,7 @@ class _NotesListViewState extends State<NotesListView> {
           ),
           ListTile(
             leading: const Icon(Icons.picture_as_pdf),
-            title: const Text('Add PDF'),
+            title: const Text('Upload PDF'),
             onTap: () async {
               Navigator.pop(context);
               final result = await FilePicker.platform.pickFiles(
@@ -241,29 +298,62 @@ class _NotesListViewState extends State<NotesListView> {
     required String path,
     required String defaultTitle,
   }) async {
-    final title = await _showTitlePrompt(context, defaultTitle);
+    final title = await _showNamePrompt(context, defaultTitle, title: 'File Name');
     if (title == null || title.trim().isEmpty) return;
-    await ctrl.addNote(title: title.trim(), type: type, content: path);
+    await ctrl.importFile(
+      folderId: _selectedFolderId,
+      title: title.trim(),
+      type: type,
+      sourcePath: path,
+    );
   }
 
-  Future<String?> _showTitlePrompt(BuildContext context, String defaultTitle) async {
-    final controller = TextEditingController(text: defaultTitle);
+  Future<String?> _showNamePrompt(BuildContext context, String defaultValue, {required String title}) async {
+    final controller = TextEditingController(text: defaultValue);
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('File Name'),
+        title: Text(title),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: 'Name'),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text),
             child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFolderDialog(BuildContext context, NotesController ctrl, {NoteFolder? existingFolder}) {
+    final controller = TextEditingController(text: existingFolder?.name ?? '');
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(existingFolder == null ? 'Create Folder' : 'Rename Folder'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Folder name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              if (existingFolder == null) {
+                final newFolderId = await ctrl.createFolder(controller.text);
+                if (context.mounted && newFolderId != null) {
+                  setState(() => _selectedFolderId = newFolderId);
+                }
+              } else {
+                await ctrl.renameFolder(existingFolder.id, controller.text);
+              }
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: Text(existingFolder == null ? 'Create' : 'Update'),
           ),
         ],
       ),
@@ -281,13 +371,10 @@ class _NotesListViewState extends State<NotesListView> {
           decoration: const InputDecoration(labelText: 'Title'),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
-              await ctrl.renameNote(note.id, controller.text.trim());
+              await ctrl.renameNote(note.id, controller.text);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('Update'),
@@ -328,10 +415,7 @@ class _NotesListViewState extends State<NotesListView> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
               final title = titleController.text.trim();
@@ -339,13 +423,9 @@ class _NotesListViewState extends State<NotesListView> {
               if (title.isEmpty || content.isEmpty) return;
 
               if (existingNote == null) {
-                await ctrl.addNote(title: title, type: 'text', content: content);
+                await ctrl.addTextNote(folderId: _selectedFolderId, title: title, content: content);
               } else {
-                await ctrl.updateTextNote(
-                  id: existingNote.id,
-                  title: title,
-                  content: content,
-                );
+                await ctrl.updateTextNote(id: existingNote.id, title: title, content: content);
               }
 
               if (context.mounted) Navigator.pop(context);
@@ -356,4 +436,22 @@ class _NotesListViewState extends State<NotesListView> {
       ),
     );
   }
+}
+
+class _PdfPreviewPage extends StatelessWidget {
+  const _PdfPreviewPage({required this.note});
+
+  final NoteItem note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(note.title)),
+      body: PDFView(filePath: note.content),
+    );
+  }
+}
+
+extension<T> on Iterable<T> {
+  T? get firstOrNull => isEmpty ? null : first;
 }
