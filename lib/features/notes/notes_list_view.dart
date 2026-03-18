@@ -21,6 +21,14 @@ class NotesListView extends StatefulWidget {
 class _NotesListViewState extends State<NotesListView> {
   String _selectedFilter = 'all';
   String _selectedFolderId = NotesController.defaultFolderId;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +40,11 @@ class _NotesListViewState extends State<NotesListView> {
       _selectedFolderId = folders.first.id;
     }
 
-    final filteredNotes = ctrl.notesFor(folderId: _selectedFolderId, filter: _selectedFilter);
+    final filteredNotes = ctrl.notesFor(
+      folderId: _selectedFolderId,
+      filter: _selectedFilter,
+      searchQuery: _searchQuery,
+    );
     final selectedFolder = folders.where((folder) => folder.id == _selectedFolderId).firstOrNull;
 
     return Scaffold(
@@ -52,9 +64,9 @@ class _NotesListViewState extends State<NotesListView> {
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: GestureDetector(
-                              onLongPress: () => _showFolderDialog(context, ctrl, existingFolder: folder),
+                              onLongPress: () => _showFolderActions(context, ctrl, folder),
                               child: InputChip(
-                                label: Text(folder.name),
+                                label: Text('${folder.name} (${ctrl.noteCountForFolder(folder.id)})'),
                                 selected: folder.id == _selectedFolderId,
                                 onSelected: (_) => setState(() => _selectedFolderId = folder.id),
                                 onPressed: () => setState(() => _selectedFolderId = folder.id),
@@ -76,6 +88,27 @@ class _NotesListViewState extends State<NotesListView> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'Search in this folder',
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () => setState(() {
+                          _searchQuery = '';
+                          _searchController.clear();
+                        }),
+                        icon: const Icon(Icons.clear),
+                      ),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Row(
               children: [
                 Expanded(
@@ -112,7 +145,11 @@ class _NotesListViewState extends State<NotesListView> {
             ),
           Expanded(
             child: filteredNotes.isEmpty
-                ? const Center(child: Text('No items in this folder yet.'))
+                ? _NotesEmptyState(
+                    hasSearch: _searchQuery.trim().isNotEmpty,
+                    selectedFilter: _selectedFilter,
+                    folderName: selectedFolder?.name ?? 'this folder',
+                  )
                 : ListView.builder(
                     itemCount: filteredNotes.length,
                     itemBuilder: (context, index) {
@@ -128,6 +165,7 @@ class _NotesListViewState extends State<NotesListView> {
                             itemBuilder: (context) => [
                               const PopupMenuItem(value: 'open', child: Text('Open')),
                               const PopupMenuItem(value: 'rename', child: Text('Rename')),
+                              const PopupMenuItem(value: 'move', child: Text('Move')),
                               if (note.type == 'text')
                                 const PopupMenuItem(value: 'edit_text', child: Text('Edit Text')),
                               const PopupMenuItem(value: 'share', child: Text('Share')),
@@ -189,28 +227,57 @@ class _NotesListViewState extends State<NotesListView> {
       case 'rename':
         _showRenameDialog(context, ctrl, note);
         break;
+      case 'move':
+        _showMoveDialog(context, ctrl, note);
+        break;
       case 'edit_text':
         _showTextEditor(context, ctrl, existingNote: note);
         break;
       case 'share':
-        await _shareNote(note);
+        await _shareNote(context, note);
         break;
       case 'delete':
-        await ctrl.deleteNote(note.id);
+        await _confirmDeleteNote(context, ctrl, note);
         break;
     }
   }
 
-  Future<void> _shareNote(NoteItem note) async {
-    if (note.type == 'text') {
-      await Share.share('${note.title}\n\n${note.content}');
-      return;
-    }
+  Future<void> _shareNote(BuildContext context, NoteItem note) async {
+    try {
+      if (note.type == 'text') {
+        await Share.share('${note.title}\n\n${note.content}');
+        return;
+      }
 
-    await Share.shareXFiles([XFile(note.content)], text: note.title);
+      final file = File(note.content);
+      if (!await file.exists()) {
+        if (context.mounted) {
+          _showSnackBar(context, 'The selected file is no longer available on this device.');
+        }
+        return;
+      }
+
+      await Share.shareXFiles([XFile(note.content)], text: note.title);
+    } catch (_) {
+      if (context.mounted) {
+        _showSnackBar(context, 'Unable to share this item right now.');
+      }
+    }
   }
 
-  void _viewNote(BuildContext context, NoteItem note) {
+  Future<void> _viewNote(BuildContext context, NoteItem note) async {
+    if (note.type != 'text') {
+      final file = File(note.content);
+      if (!await file.exists()) {
+        if (context.mounted) {
+          _showSnackBar(context, 'The selected file could not be found.');
+        }
+        return;
+      }
+    }
+
+    if (!context.mounted) return;
+
     if (note.type == 'pdf') {
       Navigator.push(
         context,
@@ -257,15 +324,21 @@ class _NotesListViewState extends State<NotesListView> {
             title: const Text('Upload Image'),
             onTap: () async {
               Navigator.pop(context);
-              final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-              if (!mounted || pickedFile == null) return;
-              await _savePickedFile(
-                context,
-                ctrl,
-                type: 'image',
-                path: pickedFile.path,
-                defaultTitle: 'Image',
-              );
+              try {
+                final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+                if (!mounted || pickedFile == null) return;
+                await _savePickedFile(
+                  context,
+                  ctrl,
+                  type: 'image',
+                  path: pickedFile.path,
+                  defaultTitle: 'Image',
+                );
+              } catch (_) {
+                if (context.mounted) {
+                  _showSnackBar(context, 'Unable to import the selected image.');
+                }
+              }
             },
           ),
           ListTile(
@@ -273,19 +346,25 @@ class _NotesListViewState extends State<NotesListView> {
             title: const Text('Upload PDF'),
             onTap: () async {
               Navigator.pop(context);
-              final result = await FilePicker.platform.pickFiles(
-                type: FileType.custom,
-                allowedExtensions: ['pdf'],
-              );
-              final path = result?.files.single.path;
-              if (!mounted || path == null) return;
-              await _savePickedFile(
-                context,
-                ctrl,
-                type: 'pdf',
-                path: path,
-                defaultTitle: result?.files.single.name ?? 'PDF',
-              );
+              try {
+                final result = await FilePicker.platform.pickFiles(
+                  type: FileType.custom,
+                  allowedExtensions: ['pdf'],
+                );
+                final path = result?.files.single.path;
+                if (!mounted || path == null) return;
+                await _savePickedFile(
+                  context,
+                  ctrl,
+                  type: 'pdf',
+                  path: path,
+                  defaultTitle: result?.files.single.name ?? 'PDF',
+                );
+              } catch (_) {
+                if (context.mounted) {
+                  _showSnackBar(context, 'Unable to import the selected PDF.');
+                }
+              }
             },
           ),
         ],
@@ -301,13 +380,23 @@ class _NotesListViewState extends State<NotesListView> {
     required String defaultTitle,
   }) async {
     final title = await _showNamePrompt(context, defaultTitle, title: 'File Name');
-    if (title == null || title.trim().isEmpty) return;
-    await ctrl.importFile(
-      folderId: _selectedFolderId,
-      title: title.trim(),
-      type: type,
-      sourcePath: path,
-    );
+    if (!context.mounted || title == null || title.trim().isEmpty) return;
+
+    try {
+      await ctrl.importFile(
+        folderId: _selectedFolderId,
+        title: title.trim(),
+        type: type,
+        sourcePath: path,
+      );
+      if (context.mounted) {
+        _showSnackBar(context, '${type.toUpperCase()} added successfully.');
+      }
+    } catch (_) {
+      if (context.mounted) {
+        _showSnackBar(context, 'Unable to save this file.');
+      }
+    }
   }
 
   Future<String?> _showNamePrompt(BuildContext context, String defaultValue, {required String title}) async {
@@ -331,6 +420,36 @@ class _NotesListViewState extends State<NotesListView> {
     );
   }
 
+  Future<void> _showFolderActions(BuildContext context, NotesController ctrl, NoteFolder folder) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.drive_file_rename_outline),
+              title: const Text('Rename Folder'),
+              onTap: () => Navigator.pop(context, 'rename'),
+            ),
+            if (folder.id != NotesController.defaultFolderId)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Delete Folder', style: TextStyle(color: Colors.red)),
+                onTap: () => Navigator.pop(context, 'delete'),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (!context.mounted || action == null) return;
+    if (action == 'rename') {
+      _showFolderDialog(context, ctrl, existingFolder: folder);
+    } else if (action == 'delete') {
+      await _showDeleteFolderDialog(context, ctrl, folder);
+    }
+  }
+
   void _showFolderDialog(BuildContext context, NotesController ctrl, {NoteFolder? existingFolder}) {
     final controller = TextEditingController(text: existingFolder?.name ?? '');
     showDialog<void>(
@@ -345,19 +464,83 @@ class _NotesListViewState extends State<NotesListView> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
+              final trimmedName = controller.text.trim();
+              if (trimmedName.isEmpty) {
+                _showSnackBar(context, 'Folder name cannot be empty.');
+                return;
+              }
+
+              bool success = false;
               if (existingFolder == null) {
-                final newFolderId = await ctrl.createFolder(controller.text);
+                final newFolderId = await ctrl.createFolder(trimmedName);
+                success = newFolderId != null;
                 if (context.mounted && newFolderId != null) {
                   setState(() => _selectedFolderId = newFolderId);
                 }
               } else {
-                await ctrl.renameFolder(existingFolder.id, controller.text);
+                success = await ctrl.renameFolder(existingFolder.id, trimmedName);
               }
-              if (context.mounted) Navigator.pop(context);
+
+              if (!context.mounted) return;
+              if (success) {
+                Navigator.pop(context);
+              } else {
+                _showSnackBar(context, 'A folder with this name already exists.');
+              }
             },
             child: Text(existingFolder == null ? 'Create' : 'Update'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showDeleteFolderDialog(BuildContext context, NotesController ctrl, NoteFolder folder) async {
+    final availableTargets = ctrl.folders.where((item) => item.id != folder.id).toList();
+    String targetFolderId = NotesController.defaultFolderId;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Delete ${folder.name}?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Notes in this folder will be moved before the folder is deleted.'),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: targetFolderId,
+                decoration: const InputDecoration(labelText: 'Move notes to'),
+                items: availableTargets
+                    .map((item) => DropdownMenuItem(value: item.id, child: Text(item.name)))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => targetFolderId = value);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                final deleted = await ctrl.deleteFolder(folder.id, moveNotesToFolderId: targetFolderId);
+                if (!dialogContext.mounted) return;
+                Navigator.pop(dialogContext);
+                if (!context.mounted) return;
+                if (deleted) {
+                  setState(() => _selectedFolderId = targetFolderId);
+                  _showSnackBar(context, 'Folder deleted. Notes were moved safely.');
+                }
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -384,6 +567,73 @@ class _NotesListViewState extends State<NotesListView> {
         ],
       ),
     );
+  }
+
+  Future<void> _showMoveDialog(BuildContext context, NotesController ctrl, NoteItem note) async {
+    final folders = ctrl.folders.where((folder) => folder.id != note.folderId).toList();
+    if (folders.isEmpty) {
+      _showSnackBar(context, 'Create another folder before moving this item.');
+      return;
+    }
+
+    String selectedFolderId = folders.first.id;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Move item'),
+          content: DropdownButtonFormField<String>(
+            value: selectedFolderId,
+            decoration: const InputDecoration(labelText: 'Choose folder'),
+            items: folders
+                .map((folder) => DropdownMenuItem(value: folder.id, child: Text(folder.name)))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setDialogState(() => selectedFolderId = value);
+              }
+            },
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                await ctrl.moveNote(note.id, selectedFolderId);
+                if (!dialogContext.mounted) return;
+                Navigator.pop(dialogContext);
+                if (!context.mounted) return;
+                _showSnackBar(context, 'Item moved successfully.');
+              },
+              child: const Text('Move'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteNote(BuildContext context, NotesController ctrl, NoteItem note) async {
+    final deleteConfirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete item?'),
+            content: Text('This will permanently remove "${note.title}".'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!deleteConfirmed) return;
+    await ctrl.deleteNote(note.id);
+    if (context.mounted) {
+      _showSnackBar(context, 'Item deleted.');
+    }
   }
 
   void _showTextEditor(BuildContext context, NotesController ctrl, {NoteItem? existingNote}) {
@@ -422,7 +672,10 @@ class _NotesListViewState extends State<NotesListView> {
             onPressed: () async {
               final title = titleController.text.trim();
               final content = contentController.text.trim();
-              if (title.isEmpty || content.isEmpty) return;
+              if (title.isEmpty || content.isEmpty) {
+                _showSnackBar(context, 'Title and text are required.');
+                return;
+              }
 
               if (existingNote == null) {
                 await ctrl.addTextNote(folderId: _selectedFolderId, title: title, content: content);
@@ -430,11 +683,62 @@ class _NotesListViewState extends State<NotesListView> {
                 await ctrl.updateTextNote(id: existingNote.id, title: title, content: content);
               }
 
-              if (context.mounted) Navigator.pop(context);
+              if (context.mounted) {
+                Navigator.pop(context);
+                _showSnackBar(context, existingNote == null ? 'Text note added.' : 'Text note updated.');
+              }
             },
             child: Text(existingNote == null ? 'Add' : 'Save'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _NotesEmptyState extends StatelessWidget {
+  const _NotesEmptyState({
+    required this.hasSearch,
+    required this.selectedFilter,
+    required this.folderName,
+  });
+
+  final bool hasSearch;
+  final String selectedFilter;
+  final String folderName;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = hasSearch
+        ? 'No matching items were found in $folderName.'
+        : switch (selectedFilter) {
+            'image' => 'No images in $folderName yet.',
+            'pdf' => 'No PDFs in $folderName yet.',
+            'text' => 'No text notes in $folderName yet.',
+            _ => 'No items in $folderName yet.',
+          };
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.note_alt_outlined, size: 48),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
       ),
     );
   }

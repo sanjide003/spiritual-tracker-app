@@ -20,15 +20,33 @@ class NotesController extends ChangeNotifier {
 
   List<NoteFolder> get folders {
     final allFolders = _foldersBox.values.toList();
-    allFolders.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    allFolders.sort((a, b) {
+      if (a.id == defaultFolderId) return -1;
+      if (b.id == defaultFolderId) return 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
     return allFolders;
   }
 
-  List<NoteItem> notesFor({required String folderId, required String filter}) {
+  NoteFolder? folderById(String folderId) => _foldersBox.get(folderId);
+
+  int noteCountForFolder(String folderId) {
+    return _notesBox.values.where((note) => note.folderId == folderId).length;
+  }
+
+  List<NoteItem> notesFor({
+    required String folderId,
+    required String filter,
+    String searchQuery = '',
+  }) {
+    final normalizedQuery = searchQuery.trim().toLowerCase();
     final items = _notesBox.values.where((note) {
       final folderMatch = note.folderId == folderId;
       final typeMatch = filter == 'all' || note.type == filter;
-      return folderMatch && typeMatch;
+      final queryMatch = normalizedQuery.isEmpty ||
+          note.title.toLowerCase().contains(normalizedQuery) ||
+          (note.type == 'text' && note.content.toLowerCase().contains(normalizedQuery));
+      return folderMatch && typeMatch && queryMatch;
     }).toList();
 
     items.sort((a, b) => b.id.compareTo(a.id));
@@ -46,7 +64,7 @@ class NotesController extends ChangeNotifier {
 
   Future<String?> createFolder(String name) async {
     final trimmedName = name.trim();
-    if (trimmedName.isEmpty) return null;
+    if (trimmedName.isEmpty || _folderNameExists(trimmedName)) return null;
 
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     await _foldersBox.put(id, NoteFolder(id: id, name: trimmedName));
@@ -54,14 +72,35 @@ class NotesController extends ChangeNotifier {
     return id;
   }
 
-  Future<void> renameFolder(String folderId, String name) async {
+  Future<bool> renameFolder(String folderId, String name) async {
     final folder = _foldersBox.get(folderId);
-    if (folder == null) return;
+    if (folder == null) return false;
     final trimmedName = name.trim();
-    if (trimmedName.isEmpty) return;
+    if (trimmedName.isEmpty) return false;
+    if (_folderNameExists(trimmedName, excludingId: folderId)) return false;
     folder.name = trimmedName;
     await folder.save();
     notifyListeners();
+    return true;
+  }
+
+  Future<bool> deleteFolder(String folderId, {String? moveNotesToFolderId}) async {
+    if (folderId == defaultFolderId) return false;
+    final folder = _foldersBox.get(folderId);
+    if (folder == null) return false;
+
+    final targetFolderId = moveNotesToFolderId == null || moveNotesToFolderId == folderId
+        ? defaultFolderId
+        : moveNotesToFolderId;
+
+    for (final note in _notesBox.values.where((note) => note.folderId == folderId)) {
+      note.folderId = targetFolderId;
+      await note.save();
+    }
+
+    await folder.delete();
+    notifyListeners();
+    return true;
   }
 
   Future<void> addTextNote({
@@ -111,6 +150,14 @@ class NotesController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> moveNote(String id, String targetFolderId) async {
+    final note = _notesBox.get(id);
+    if (note == null || _foldersBox.get(targetFolderId) == null) return;
+    note.folderId = targetFolderId;
+    await note.save();
+    notifyListeners();
+  }
+
   Future<void> renameNote(String id, String newTitle) async {
     final note = _notesBox.get(id);
     if (note == null) return;
@@ -146,5 +193,12 @@ class NotesController extends ChangeNotifier {
     }
     await _notesBox.delete(id);
     notifyListeners();
+  }
+
+  bool _folderNameExists(String name, {String? excludingId}) {
+    final normalized = name.trim().toLowerCase();
+    return _foldersBox.values.any(
+      (folder) => folder.id != excludingId && folder.name.trim().toLowerCase() == normalized,
+    );
   }
 }
