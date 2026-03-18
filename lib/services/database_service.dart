@@ -16,6 +16,7 @@ class DatabaseService {
   static const String notesBoxName = 'notesBox';
   static const String noteFoldersBoxName = 'noteFoldersBox';
   static const String settingsBoxName = 'settingsBox';
+  static const String analyticsBoxName = 'analyticsBox';
 
   static const String backupManifestVersion = '1.0.0';
   static const String backupJsonName = 'backup.json';
@@ -35,6 +36,7 @@ class DatabaseService {
     await Hive.openBox<NoteItem>(notesBoxName);
     await Hive.openBox<NoteFolder>(noteFoldersBoxName);
     await Hive.openBox(settingsBoxName);
+    await Hive.openBox<Map>(analyticsBoxName);
   }
 
   static Future<Directory> appDataDirectory() async {
@@ -58,6 +60,7 @@ class DatabaseService {
     final dhikrsBox = Hive.box<CustomDhikr>(dhikrsBoxName);
     final prayerBox = Hive.box<Map>(defaultPrayersBoxName);
     final settingsBox = Hive.box(settingsBoxName);
+    final analyticsBox = Hive.box<Map>(analyticsBoxName);
 
     final payload = {
       'manifest': {
@@ -67,6 +70,7 @@ class DatabaseService {
         'foldersCount': foldersBox.length,
         'dhikrCount': dhikrsBox.length,
         'prayerKeys': prayerBox.keys.map((key) => key.toString()).toList(),
+        'analyticsKeys': analyticsBox.keys.map((key) => key.toString()).toList(),
       },
       'notes': notesBox.values
           .map(
@@ -103,6 +107,9 @@ class DatabaseService {
       'settings': settingsBox.toMap().map(
             (key, value) => MapEntry(key.toString(), value),
           ),
+      'analytics': analyticsBox.toMap().map(
+            (key, value) => MapEntry(key.toString(), value),
+          ),
     };
 
     final jsonFile = File(p.join(tempDir.path, backupJsonName));
@@ -136,6 +143,7 @@ class DatabaseService {
     final dhikrsBox = Hive.box<CustomDhikr>(dhikrsBoxName);
     final prayerBox = Hive.box<Map>(defaultPrayersBoxName);
     final settingsBox = Hive.box(settingsBoxName);
+    final analyticsBox = Hive.box<Map>(analyticsBoxName);
     final appDir = await appDataDirectory();
     final notesStorageDir = Directory(p.join(appDir.path, notesStorageDirectoryName));
 
@@ -148,6 +156,7 @@ class DatabaseService {
     await foldersBox.clear();
     await dhikrsBox.clear();
     await prayerBox.clear();
+    await analyticsBox.clear();
 
     final previousBackupMetadata = {
       'backup_last_backup_at': settingsBox.get('backup_last_backup_at'),
@@ -205,6 +214,11 @@ class DatabaseService {
     final prayers = Map<String, dynamic>.from(payload['prayers'] as Map? ?? <String, dynamic>{});
     for (final entry in prayers.entries) {
       await prayerBox.put(entry.key, Map<String, dynamic>.from(entry.value as Map));
+    }
+
+    final restoredAnalytics = Map<String, dynamic>.from(payload['analytics'] as Map? ?? <String, dynamic>{});
+    for (final entry in restoredAnalytics.entries) {
+      await analyticsBox.put(entry.key, Map<String, dynamic>.from(entry.value as Map));
     }
 
     final restoredSettings = Map<String, dynamic>.from(payload['settings'] as Map? ?? <String, dynamic>{});
