@@ -39,7 +39,7 @@ class SpiritualTrackerApp extends StatelessWidget {
     final isArabic = langProvider.currentLanguage == 'ar';
 
     return MaterialApp(
-      title: 'Spiritual Tracker',
+      title: langProvider.translate('app_title'),
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         return Directionality(

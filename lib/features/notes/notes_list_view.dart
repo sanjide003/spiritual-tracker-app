@@ -81,7 +81,7 @@ class _NotesListViewState extends State<NotesListView> {
                 FilledButton.icon(
                   onPressed: () => _showFolderDialog(context, ctrl),
                   icon: const Icon(Icons.create_new_folder),
-                  label: const Text('Folder'),
+                  label: Text(lang.translate('notes_folder_button')),
                 ),
               ],
             ),
@@ -93,7 +93,7 @@ class _NotesListViewState extends State<NotesListView> {
               onChanged: (value) => setState(() => _searchQuery = value),
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: 'Search in this folder',
+                hintText: lang.translate('notes_search_hint'),
                 suffixIcon: _searchQuery.isEmpty
                     ? null
                     : IconButton(
@@ -116,10 +116,10 @@ class _NotesListViewState extends State<NotesListView> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _buildFilterChip('all', 'All'),
-                        _buildFilterChip('image', 'Image'),
-                        _buildFilterChip('pdf', 'PDF'),
-                        _buildFilterChip('text', 'Text'),
+                        _buildFilterChip('all', lang.translate('notes_filter_all')),
+                        _buildFilterChip('image', lang.translate('notes_filter_image')),
+                        _buildFilterChip('pdf', lang.translate('notes_filter_pdf')),
+                        _buildFilterChip('text', lang.translate('notes_filter_text')),
                       ],
                     ),
                   ),
@@ -138,7 +138,7 @@ class _NotesListViewState extends State<NotesListView> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Folder: ${selectedFolder.name}',
+                  lang.translateWithArgs('notes_current_folder', {'name': selectedFolder.name}),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
@@ -148,7 +148,7 @@ class _NotesListViewState extends State<NotesListView> {
                 ? _NotesEmptyState(
                     hasSearch: _searchQuery.trim().isNotEmpty,
                     selectedFilter: _selectedFilter,
-                    folderName: selectedFolder?.name ?? 'this folder',
+                    folderName: selectedFolder?.name ?? lang.translate('notes_folder_button'),
                   )
                 : ListView.builder(
                     itemCount: filteredNotes.length,
@@ -159,19 +159,19 @@ class _NotesListViewState extends State<NotesListView> {
                         child: ListTile(
                           leading: CircleAvatar(child: Icon(_iconForType(note.type))),
                           title: Text(note.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(_subtitleForNote(note)),
+                          subtitle: Text(_subtitleForNote(context, note)),
                           trailing: PopupMenuButton<String>(
                             onSelected: (value) => _handleMenuAction(context, ctrl, note, value),
                             itemBuilder: (context) => [
-                              const PopupMenuItem(value: 'open', child: Text('Open')),
-                              const PopupMenuItem(value: 'rename', child: Text('Rename')),
-                              const PopupMenuItem(value: 'move', child: Text('Move')),
+                              PopupMenuItem(value: 'open', child: Text(_t(context, 'notes_menu_open'))),
+                              PopupMenuItem(value: 'rename', child: Text(_t(context, 'notes_menu_rename'))),
+                              PopupMenuItem(value: 'move', child: Text(_t(context, 'notes_menu_move'))),
                               if (note.type == 'text')
-                                const PopupMenuItem(value: 'edit_text', child: Text('Edit Text')),
-                              const PopupMenuItem(value: 'share', child: Text('Share')),
-                              const PopupMenuItem(
+                                PopupMenuItem(value: 'edit_text', child: Text(_t(context, 'notes_menu_edit_text'))),
+                              PopupMenuItem(value: 'share', child: Text(_t(context, 'notes_menu_share'))),
+                              PopupMenuItem(
                                 value: 'delete',
-                                child: Text('Delete', style: TextStyle(color: Colors.red)),
+                                child: Text(_t(context, 'common_delete'), style: const TextStyle(color: Colors.red)),
                               ),
                             ],
                           ),
@@ -208,10 +208,13 @@ class _NotesListViewState extends State<NotesListView> {
     }
   }
 
-  String _subtitleForNote(NoteItem note) {
-    if (note.type == 'text') return 'TEXT';
+  String _subtitleForNote(BuildContext context, NoteItem note) {
+    if (note.type == 'text') return Provider.of<AppLanguageProvider>(context, listen: false).translate('notes_type_text');
     final sizeMb = note.fileSizeBytes / (1024 * 1024);
-    return '${note.type.toUpperCase()} • ${sizeMb.toStringAsFixed(2)} MB';
+    final typeLabel = note.type == 'image'
+        ? Provider.of<AppLanguageProvider>(context, listen: false).translate('notes_filter_image')
+        : Provider.of<AppLanguageProvider>(context, listen: false).translate('notes_filter_pdf');
+    return '$typeLabel • ${sizeMb.toStringAsFixed(2)} MB';
   }
 
   Future<void> _handleMenuAction(
@@ -252,7 +255,7 @@ class _NotesListViewState extends State<NotesListView> {
       final file = File(note.content);
       if (!await file.exists()) {
         if (context.mounted) {
-          _showSnackBar(context, 'The selected file is no longer available on this device.');
+          _showSnackBar(context, _t(context, 'notes_file_unavailable'));
         }
         return;
       }
@@ -260,7 +263,7 @@ class _NotesListViewState extends State<NotesListView> {
       await Share.shareXFiles([XFile(note.content)], text: note.title);
     } catch (_) {
       if (context.mounted) {
-        _showSnackBar(context, 'Unable to share this item right now.');
+        _showSnackBar(context, _t(context, 'notes_share_failed'));
       }
     }
   }
@@ -270,7 +273,7 @@ class _NotesListViewState extends State<NotesListView> {
       final file = File(note.content);
       if (!await file.exists()) {
         if (context.mounted) {
-          _showSnackBar(context, 'The selected file could not be found.');
+          _showSnackBar(context, _t(context, 'notes_file_missing'));
         }
         return;
       }
@@ -300,7 +303,7 @@ class _NotesListViewState extends State<NotesListView> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(_t(context, 'common_close'))),
         ],
       ),
     );
@@ -313,7 +316,7 @@ class _NotesListViewState extends State<NotesListView> {
         children: [
           ListTile(
             leading: const Icon(Icons.text_fields),
-            title: const Text('Add Text Note'),
+            title: Text(_t(context, 'notes_add_text')),
             onTap: () {
               Navigator.pop(context);
               _showTextEditor(context, ctrl);
@@ -321,7 +324,7 @@ class _NotesListViewState extends State<NotesListView> {
           ),
           ListTile(
             leading: const Icon(Icons.image),
-            title: const Text('Upload Image'),
+            title: Text(_t(context, 'notes_upload_image')),
             onTap: () async {
               Navigator.pop(context);
               try {
@@ -332,18 +335,18 @@ class _NotesListViewState extends State<NotesListView> {
                   ctrl,
                   type: 'image',
                   path: pickedFile.path,
-                  defaultTitle: 'Image',
+                  defaultTitle: _t(context, 'notes_filter_image'),
                 );
               } catch (_) {
                 if (context.mounted) {
-                  _showSnackBar(context, 'Unable to import the selected image.');
+                  _showSnackBar(context, _t(context, 'notes_import_image_failed'));
                 }
               }
             },
           ),
           ListTile(
             leading: const Icon(Icons.picture_as_pdf),
-            title: const Text('Upload PDF'),
+            title: Text(_t(context, 'notes_upload_pdf')),
             onTap: () async {
               Navigator.pop(context);
               try {
@@ -358,11 +361,11 @@ class _NotesListViewState extends State<NotesListView> {
                   ctrl,
                   type: 'pdf',
                   path: path,
-                  defaultTitle: result?.files.single.name ?? 'PDF',
+                  defaultTitle: result?.files.single.name ?? _t(context, 'notes_filter_pdf'),
                 );
               } catch (_) {
                 if (context.mounted) {
-                  _showSnackBar(context, 'Unable to import the selected PDF.');
+                  _showSnackBar(context, _t(context, 'notes_import_pdf_failed'));
                 }
               }
             },
@@ -379,7 +382,7 @@ class _NotesListViewState extends State<NotesListView> {
     required String path,
     required String defaultTitle,
   }) async {
-    final title = await _showNamePrompt(context, defaultTitle, title: 'File Name');
+    final title = await _showNamePrompt(context, defaultTitle, title: _t(context, 'notes_file_name'));
     if (!context.mounted || title == null || title.trim().isEmpty) return;
 
     try {
@@ -390,11 +393,11 @@ class _NotesListViewState extends State<NotesListView> {
         sourcePath: path,
       );
       if (context.mounted) {
-        _showSnackBar(context, '${type.toUpperCase()} added successfully.');
+        _showSnackBar(context, _t(context, 'notes_added_success', {'type': type.toUpperCase()}));
       }
     } catch (_) {
       if (context.mounted) {
-        _showSnackBar(context, 'Unable to save this file.');
+        _showSnackBar(context, _t(context, 'notes_save_failed'));
       }
     }
   }
@@ -407,13 +410,13 @@ class _NotesListViewState extends State<NotesListView> {
         title: Text(title),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'Name'),
+          decoration: InputDecoration(labelText: _t(context, 'common_name')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(_t(context, 'common_cancel'))),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Save'),
+            child: Text(_t(context, 'common_save')),
           ),
         ],
       ),
@@ -428,13 +431,13 @@ class _NotesListViewState extends State<NotesListView> {
           children: [
             ListTile(
               leading: const Icon(Icons.drive_file_rename_outline),
-              title: const Text('Rename Folder'),
+              title: Text(_t(context, 'notes_rename_folder')),
               onTap: () => Navigator.pop(context, 'rename'),
             ),
             if (folder.id != NotesController.defaultFolderId)
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Delete Folder', style: TextStyle(color: Colors.red)),
+                title: Text(_t(context, 'notes_delete_folder'), style: TextStyle(color: Colors.red)),
                 onTap: () => Navigator.pop(context, 'delete'),
               ),
           ],
@@ -455,18 +458,18 @@ class _NotesListViewState extends State<NotesListView> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(existingFolder == null ? 'Create Folder' : 'Rename Folder'),
+        title: Text(existingFolder == null ? _t(context, 'notes_create_folder') : _t(context, 'notes_rename_folder')),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'Folder name'),
+          decoration: InputDecoration(labelText: _t(context, 'notes_folder_name')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(_t(context, 'common_cancel'))),
           FilledButton(
             onPressed: () async {
               final trimmedName = controller.text.trim();
               if (trimmedName.isEmpty) {
-                _showSnackBar(context, 'Folder name cannot be empty.');
+                _showSnackBar(context, _t(context, 'notes_folder_empty_error'));
                 return;
               }
 
@@ -485,10 +488,10 @@ class _NotesListViewState extends State<NotesListView> {
               if (success) {
                 Navigator.pop(context);
               } else {
-                _showSnackBar(context, 'A folder with this name already exists.');
+                _showSnackBar(context, _t(context, 'notes_folder_exists_error'));
               }
             },
-            child: Text(existingFolder == null ? 'Create' : 'Update'),
+            child: Text(existingFolder == null ? _t(context, 'notes_create_folder') : _t(context, 'common_update')),
           ),
         ],
       ),
@@ -503,16 +506,16 @@ class _NotesListViewState extends State<NotesListView> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Delete ${folder.name}?'),
+          title: Text(_t(context, 'notes_delete_folder_title', {'name': folder.name})),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Notes in this folder will be moved before the folder is deleted.'),
+              Text(_t(context, 'notes_delete_folder_message')),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: targetFolderId,
-                decoration: const InputDecoration(labelText: 'Move notes to'),
+                decoration: InputDecoration(labelText: _t(context, 'notes_move_notes_to')),
                 items: availableTargets
                     .map((item) => DropdownMenuItem(value: item.id, child: Text(item.name)))
                     .toList(),
@@ -525,7 +528,7 @@ class _NotesListViewState extends State<NotesListView> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(_t(context, 'common_cancel'))),
             FilledButton(
               onPressed: () async {
                 final deleted = await ctrl.deleteFolder(folder.id, moveNotesToFolderId: targetFolderId);
@@ -534,10 +537,10 @@ class _NotesListViewState extends State<NotesListView> {
                 if (!context.mounted) return;
                 if (deleted) {
                   setState(() => _selectedFolderId = targetFolderId);
-                  _showSnackBar(context, 'Folder deleted. Notes were moved safely.');
+                  _showSnackBar(context, _t(context, 'notes_folder_deleted'));
                 }
               },
-              child: const Text('Delete'),
+              child: Text(_t(context, 'common_delete')),
             ),
           ],
         ),
@@ -550,19 +553,19 @@ class _NotesListViewState extends State<NotesListView> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rename'),
+        title: Text(_t(context, 'common_rename')),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'Title'),
+          decoration: InputDecoration(labelText: _t(context, 'common_title')),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(_t(context, 'common_cancel'))),
           FilledButton(
             onPressed: () async {
               await ctrl.renameNote(note.id, controller.text);
               if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('Update'),
+            child: Text(_t(context, 'common_update')),
           ),
         ],
       ),
@@ -572,7 +575,7 @@ class _NotesListViewState extends State<NotesListView> {
   Future<void> _showMoveDialog(BuildContext context, NotesController ctrl, NoteItem note) async {
     final folders = ctrl.folders.where((folder) => folder.id != note.folderId).toList();
     if (folders.isEmpty) {
-      _showSnackBar(context, 'Create another folder before moving this item.');
+      _showSnackBar(context, _t(context, 'notes_create_folder_before_move'));
       return;
     }
 
@@ -581,10 +584,10 @@ class _NotesListViewState extends State<NotesListView> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Move item'),
+          title: Text(_t(context, 'notes_move_item_title')),
           content: DropdownButtonFormField<String>(
             value: selectedFolderId,
-            decoration: const InputDecoration(labelText: 'Choose folder'),
+            decoration: InputDecoration(labelText: _t(context, 'notes_choose_folder')),
             items: folders
                 .map((folder) => DropdownMenuItem(value: folder.id, child: Text(folder.name)))
                 .toList(),
@@ -595,16 +598,16 @@ class _NotesListViewState extends State<NotesListView> {
             },
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(_t(context, 'common_cancel'))),
             FilledButton(
               onPressed: () async {
                 await ctrl.moveNote(note.id, selectedFolderId);
                 if (!dialogContext.mounted) return;
                 Navigator.pop(dialogContext);
                 if (!context.mounted) return;
-                _showSnackBar(context, 'Item moved successfully.');
+                _showSnackBar(context, _t(context, 'notes_item_moved'));
               },
-              child: const Text('Move'),
+              child: Text(_t(context, 'common_move')),
             ),
           ],
         ),
@@ -616,13 +619,13 @@ class _NotesListViewState extends State<NotesListView> {
     final deleteConfirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Delete item?'),
-            content: Text('This will permanently remove "${note.title}".'),
+            title: Text(_t(context, 'notes_delete_item_title')),
+            content: Text(_t(context, 'notes_delete_item_message', {'title': note.title})),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t(context, 'common_cancel'))),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete'),
+                child: Text(_t(context, 'common_delete')),
               ),
             ],
           ),
@@ -632,7 +635,7 @@ class _NotesListViewState extends State<NotesListView> {
     if (!deleteConfirmed) return;
     await ctrl.deleteNote(note.id);
     if (context.mounted) {
-      _showSnackBar(context, 'Item deleted.');
+      _showSnackBar(context, _t(context, 'notes_item_deleted'));
     }
   }
 
@@ -643,7 +646,7 @@ class _NotesListViewState extends State<NotesListView> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(existingNote == null ? 'Add Text Note' : 'Edit Text Note'),
+        title: Text(existingNote == null ? _t(context, 'notes_add_text') : _t(context, 'notes_edit_text_title')),
         content: SizedBox(
           width: double.maxFinite,
           child: Column(
@@ -651,14 +654,14 @@ class _NotesListViewState extends State<NotesListView> {
             children: [
               TextField(
                 controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
+                decoration: InputDecoration(labelText: _t(context, 'common_title')),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: contentController,
                 maxLines: 8,
-                decoration: const InputDecoration(
-                  labelText: 'Text',
+                decoration: InputDecoration(
+                  labelText: _t(context, 'common_text'),
                   alignLabelWithHint: true,
                   border: OutlineInputBorder(),
                 ),
@@ -667,13 +670,13 @@ class _NotesListViewState extends State<NotesListView> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(_t(context, 'common_cancel'))),
           FilledButton(
             onPressed: () async {
               final title = titleController.text.trim();
               final content = contentController.text.trim();
               if (title.isEmpty || content.isEmpty) {
-                _showSnackBar(context, 'Title and text are required.');
+                _showSnackBar(context, _t(context, 'notes_title_and_text_required'));
                 return;
               }
 
@@ -685,14 +688,19 @@ class _NotesListViewState extends State<NotesListView> {
 
               if (context.mounted) {
                 Navigator.pop(context);
-                _showSnackBar(context, existingNote == null ? 'Text note added.' : 'Text note updated.');
+                _showSnackBar(context, existingNote == null ? _t(context, 'notes_text_added') : _t(context, 'notes_text_updated'));
               }
             },
-            child: Text(existingNote == null ? 'Add' : 'Save'),
+            child: Text(existingNote == null ? _t(context, 'common_add') : _t(context, 'common_save')),
           ),
         ],
       ),
     );
+  }
+
+  String _t(BuildContext context, String key, [Map<String, String> args = const {}]) {
+    final lang = Provider.of<AppLanguageProvider>(context, listen: false);
+    return lang.translateWithArgs(key, args);
   }
 
   void _showSnackBar(BuildContext context, String message) {
@@ -715,13 +723,14 @@ class _NotesEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+        final lang = Provider.of<AppLanguageProvider>(context, listen: false);
     final message = hasSearch
-        ? 'No matching items were found in $folderName.'
+        ? lang.translateWithArgs('notes_empty_search', {'folder': folderName})
         : switch (selectedFilter) {
-            'image' => 'No images in $folderName yet.',
-            'pdf' => 'No PDFs in $folderName yet.',
-            'text' => 'No text notes in $folderName yet.',
-            _ => 'No items in $folderName yet.',
+            'image' => lang.translateWithArgs('notes_empty_image', {'folder': folderName}),
+            'pdf' => lang.translateWithArgs('notes_empty_pdf', {'folder': folderName}),
+            'text' => lang.translateWithArgs('notes_empty_text', {'folder': folderName}),
+            _ => lang.translateWithArgs('notes_empty_all', {'folder': folderName}),
           };
 
     return Center(

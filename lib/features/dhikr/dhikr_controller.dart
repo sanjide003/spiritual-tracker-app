@@ -86,10 +86,10 @@ class DhikrController extends ChangeNotifier {
     });
   }
 
-  List<String> getLast7DayLabels() {
+  List<String> getLast7DayLabels(String languageCode) {
     return List<String>.generate(7, (index) {
       final day = DateTime.now().subtract(Duration(days: 6 - index));
-      return _weekdayLabel(day.weekday);
+      return _weekdayLabel(day.weekday, languageCode);
     });
   }
 
@@ -123,22 +123,13 @@ class DhikrController extends ChangeNotifier {
     return '${local.year}-$month-$day';
   }
 
-  String _weekdayLabel(int weekday) {
-    switch (weekday) {
-      case DateTime.monday:
-        return 'Mon';
-      case DateTime.tuesday:
-        return 'Tue';
-      case DateTime.wednesday:
-        return 'Wed';
-      case DateTime.thursday:
-        return 'Thu';
-      case DateTime.friday:
-        return 'Fri';
-      case DateTime.saturday:
-        return 'Sat';
-      default:
-        return 'Sun';
-    }
+  String _weekdayLabel(int weekday, String languageCode) {
+    final labels = switch (languageCode) {
+      'ml' => {1: 'തി', 2: 'ചൊ', 3: 'ബു', 4: 'വ്യാ', 5: 'വെ', 6: 'ശ', 7: 'ഞാ'},
+      'ar' => {1: 'الإث', 2: 'الثل', 3: 'الأر', 4: 'الخم', 5: 'الجم', 6: 'السب', 7: 'الأح'},
+      _ => {1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'},
+    };
+    return labels[weekday] ?? '';
   }
+
 }

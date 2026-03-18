@@ -51,7 +51,8 @@ class BackupController extends ChangeNotifier {
   double progress = 0;
   int transferredBytes = 0;
   int totalBytes = 0;
-  String statusMessage = 'Local-only mode active';
+  String statusKey = 'backup_status_local_only';
+  Map<String, String> statusArgs = const {};
   String? lastBackupFileName;
   DateTime? lastBackupAt;
   DateTime? lastRestoreAt;
@@ -68,9 +69,10 @@ class BackupController extends ChangeNotifier {
 
   Future<void> signIn() async {
     currentUser = await _googleSignIn.signIn();
-    statusMessage = currentUser == null
-        ? 'Google sign-in cancelled'
-        : 'Connected to ${currentUser!.email}';
+    _setStatus(
+      currentUser == null ? 'backup_status_signin_cancelled' : 'backup_status_connected',
+      currentUser == null ? const {} : {'email': currentUser!.email},
+    );
     notifyListeners();
     if (currentUser != null) {
       await loadAvailableBackups();
@@ -81,7 +83,7 @@ class BackupController extends ChangeNotifier {
     await _googleSignIn.signOut();
     currentUser = null;
     availableBackups = const [];
-    statusMessage = 'Signed out from Google Drive';
+    _setStatus('backup_status_signed_out');
     notifyListeners();
   }
 
@@ -97,7 +99,7 @@ class BackupController extends ChangeNotifier {
     progress = 0;
     transferredBytes = 0;
     totalBytes = 0;
-    statusMessage = 'Preparing backup archive...';
+    _setStatus('backup_status_preparing');
     notifyListeners();
 
     File? archive;
@@ -106,7 +108,7 @@ class BackupController extends ChangeNotifier {
       archive = await DatabaseService.createBackupArchive();
       totalBytes = await archive.length();
       lastBackupFileName = archive.uri.pathSegments.last;
-      statusMessage = 'Signing in to Google Drive...';
+      _setStatus('backup_status_signing_in');
       notifyListeners();
 
       _client = await _googleSignIn.authenticatedClient();
@@ -118,7 +120,7 @@ class BackupController extends ChangeNotifier {
       final stream = _createTrackedUploadStream(archive);
       final media = drive.Media(stream, totalBytes);
 
-      statusMessage = 'Uploading backup to Google Drive...';
+      _setStatus('backup_status_uploading');
       notifyListeners();
 
       await driveApi.files.create(
@@ -129,16 +131,16 @@ class BackupController extends ChangeNotifier {
       );
 
       if (isCancelled) {
-        statusMessage = 'Backup cancelled';
+        _setStatus('backup_status_backup_cancelled');
       } else {
         progress = 1;
         lastBackupAt = DateTime.now();
         await _persistMetadata();
-        statusMessage = 'Backup completed successfully';
+        _setStatus('backup_status_backup_completed');
         await loadAvailableBackups();
       }
     } catch (error) {
-      statusMessage = 'Backup failed: $error';
+      _setStatus('backup_status_backup_failed', {'error': '$error'});
     } finally {
       await _resetTransferResources();
       isUploading = false;
@@ -150,7 +152,7 @@ class BackupController extends ChangeNotifier {
   Future<void> loadAvailableBackups() async {
     if (currentUser == null) return;
     isLoadingBackups = true;
-    statusMessage = 'Loading backups from Google Drive...';
+    _setStatus('backup_status_loading_backups');
     notifyListeners();
 
     try {
@@ -179,11 +181,12 @@ class BackupController extends ChangeNotifier {
           )
           .toList();
 
-      statusMessage = availableBackups.isEmpty
-          ? 'No Drive backups found yet'
-          : 'Found ${availableBackups.length} backup file(s)';
+      _setStatus(
+        availableBackups.isEmpty ? 'backup_status_no_backups' : 'backup_status_found_backups',
+        availableBackups.isEmpty ? const {} : {'count': availableBackups.length.toString()},
+      );
     } catch (error) {
-      statusMessage = 'Could not load backup list: $error';
+      _setStatus('backup_status_load_failed', {'error': '$error'});
     } finally {
       isLoadingBackups = false;
       _client?.close();
@@ -203,7 +206,7 @@ class BackupController extends ChangeNotifier {
     progress = 0;
     transferredBytes = 0;
     totalBytes = backup.sizeBytes;
-    statusMessage = 'Downloading ${backup.name}...';
+    _setStatus('backup_status_downloading', {'name': backup.name});
     notifyListeners();
 
     File? downloadFile;
@@ -230,28 +233,30 @@ class BackupController extends ChangeNotifier {
           if (await downloadFile.exists()) {
             await downloadFile.delete();
           }
-          statusMessage = 'Restore cancelled';
+          _setStatus('backup_status_restore_cancelled');
           return;
         }
         sink.add(chunk);
         transferredBytes += chunk.length;
         progress = totalBytes == 0 ? 0 : transferredBytes / totalBytes;
-        statusMessage =
-            'Downloading ${transferredMb.toStringAsFixed(2)} MB of ${totalMb.toStringAsFixed(2)} MB';
+        _setStatus('backup_status_download_progress', {
+          'current': transferredMb.toStringAsFixed(2),
+          'total': totalMb.toStringAsFixed(2),
+        });
         notifyListeners();
       }
       await sink.close();
 
-      statusMessage = 'Applying backup to local storage...';
+      _setStatus('backup_status_applying');
       notifyListeners();
 
       await DatabaseService.restoreBackupArchive(downloadFile);
       progress = 1;
       lastRestoreAt = DateTime.now();
       await _persistMetadata();
-      statusMessage = 'Restore completed successfully';
+      _setStatus('backup_status_restore_completed');
     } catch (error) {
-      statusMessage = 'Restore failed: $error';
+      _setStatus('backup_status_restore_failed', {'error': '$error'});
     } finally {
       _client?.close();
       _client = null;
@@ -272,8 +277,10 @@ class BackupController extends ChangeNotifier {
         }
         transferredBytes += chunk.length;
         progress = totalBytes == 0 ? 0 : transferredBytes / totalBytes;
-        statusMessage =
-            'Uploading ${transferredMb.toStringAsFixed(2)} MB of ${totalMb.toStringAsFixed(2)} MB';
+        _setStatus('backup_status_upload_progress', {
+          'current': transferredMb.toStringAsFixed(2),
+          'total': totalMb.toStringAsFixed(2),
+        });
         notifyListeners();
         controller.add(chunk);
       },
@@ -290,7 +297,7 @@ class BackupController extends ChangeNotifier {
     if (!isUploading || isPaused) return;
     _streamSubscription?.pause();
     isPaused = true;
-    statusMessage = 'Backup paused';
+    _setStatus('backup_status_paused');
     notifyListeners();
   }
 
@@ -298,7 +305,7 @@ class BackupController extends ChangeNotifier {
     if (!isUploading || !isPaused) return;
     _streamSubscription?.resume();
     isPaused = false;
-    statusMessage = 'Resuming backup upload...';
+    _setStatus('backup_status_resuming');
     notifyListeners();
   }
 
@@ -307,8 +314,14 @@ class BackupController extends ChangeNotifier {
     isCancelled = true;
     await _streamSubscription?.cancel();
     await _streamController?.close();
-    statusMessage = isRestoring ? 'Cancelling restore...' : 'Cancelling backup...';
+    _setStatus(isRestoring ? 'backup_status_cancelling_restore' : 'backup_status_cancelling_backup');
     notifyListeners();
+  }
+
+
+  void _setStatus(String key, [Map<String, String> args = const {}]) {
+    statusKey = key;
+    statusArgs = args;
   }
 
   void _loadSavedMetadata() {

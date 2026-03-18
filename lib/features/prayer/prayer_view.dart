@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'prayer_controller.dart';
 import '../../core/localization/app_localizations.dart';
+import 'prayer_controller.dart';
 
 class PrayerView extends StatelessWidget {
   const PrayerView({super.key});
@@ -23,14 +23,12 @@ class PrayerView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Missed Prayer Tracker',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              lang.translate('prayer_tracker_title'),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              'Only keep track of missed prayers that still need to be made up. Use + and - to update each prayer quickly.',
+              lang.translate('prayer_tracker_subtitle'),
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -49,7 +47,7 @@ class PrayerView extends StatelessWidget {
                   final prayer = PrayerController.prayerNames[index];
                   final count = ctrl.countFor(prayer);
                   return _PrayerCounterCard(
-                    prayer: prayer,
+                    prayer: lang.translate('prayer_${prayer.toLowerCase()}'),
                     count: count,
                     onIncrement: () => ctrl.incrementMissedPrayer(prayer),
                     onDecrement: () => ctrl.decrementMissedPrayer(prayer),
@@ -69,10 +67,8 @@ class PrayerView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Total Pending Qadha',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                    lang.translate('prayer_total_pending'),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -107,6 +103,7 @@ class _PrayerCounterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<AppLanguageProvider>(context, listen: false);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -118,9 +115,7 @@ class _PrayerCounterCard extends StatelessWidget {
         children: [
           Text(
             prayer,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const Spacer(),
           Center(
@@ -139,7 +134,7 @@ class _PrayerCounterCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onDecrement,
                   icon: const Icon(Icons.remove),
-                  label: const Text('Minus'),
+                  label: Text(lang.translate('prayer_minus')),
                 ),
               ),
               const SizedBox(width: 8),
@@ -147,7 +142,7 @@ class _PrayerCounterCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onIncrement,
                   icon: const Icon(Icons.add),
-                  label: const Text('Plus'),
+                  label: Text(lang.translate('prayer_plus')),
                 ),
               ),
             ],

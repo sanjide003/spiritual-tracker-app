@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/localization/app_localizations.dart';
 import 'notes_controller.dart';
 
 class NoteEditView extends StatelessWidget {
@@ -13,10 +14,11 @@ class NoteEditView extends StatelessWidget {
     final titleCtrl = TextEditingController();
     final contentCtrl = TextEditingController();
     final notesCtrl = Provider.of<NotesController>(context, listen: false);
+    final lang = Provider.of<AppLanguageProvider>(context, listen: false);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Note'),
+        title: Text(lang.translate('note_edit_add')),
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
@@ -39,10 +41,10 @@ class NoteEditView extends StatelessWidget {
           children: [
             TextField(
               controller: titleCtrl,
-              decoration: const InputDecoration(
-                hintText: 'Title',
+              decoration: InputDecoration(
+                hintText: lang.translate('note_edit_hint_title'),
                 border: InputBorder.none,
-                hintStyle: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                hintStyle: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
@@ -51,8 +53,8 @@ class NoteEditView extends StatelessWidget {
               child: TextField(
                 controller: contentCtrl,
                 maxLines: null,
-                decoration: const InputDecoration(
-                  hintText: 'Type your thoughts here...',
+                decoration: InputDecoration(
+                  hintText: lang.translate('note_edit_hint_body'),
                   border: InputBorder.none,
                 ),
               ),

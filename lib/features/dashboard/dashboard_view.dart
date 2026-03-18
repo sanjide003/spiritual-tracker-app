@@ -21,29 +21,25 @@ class DashboardView extends StatelessWidget {
     final totalDhikr = dhikrCtrl.getTotalDhikrCount();
     final dhikrHistory = dhikrCtrl.getLast7DaysCounts();
     final qadhaHistory = prayerCtrl.getLast7DaysPendingQadha();
-    final labels = dhikrCtrl.getLast7DayLabels();
+    final labels = dhikrCtrl.getLast7DayLabels(lang.currentLanguage);
 
-    final chartMax = [
-      ...dhikrHistory,
-      ...qadhaHistory,
-      1,
-    ].reduce((a, b) => a > b ? a : b).toDouble() + 2;
+    final chartMax = [...dhikrHistory, ...qadhaHistory, 1].reduce((a, b) => a > b ? a : b).toDouble() + 2;
 
     return Scaffold(
       appBar: AppBar(title: Text(lang.translate('tab_dashboard')), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text(
-            'Your Spiritual Summary',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          Text(
+            lang.translate('dashboard_summary_title'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildSummaryCard(context, 'Pending Qadha', '$pendingQadha', Colors.orange),
+              _buildSummaryCard(context, lang.translate('dashboard_pending_qadha'), '$pendingQadha', Colors.orange),
               const SizedBox(width: 16),
-              _buildSummaryCard(context, 'Today\'s Dhikr', '$todayDhikr', Colors.teal),
+              _buildSummaryCard(context, lang.translate('dashboard_today_dhikr'), '$todayDhikr', Colors.teal),
             ],
           ),
           const SizedBox(height: 16),
@@ -58,7 +54,7 @@ class DashboardView extends StatelessWidget {
                 Expanded(
                   child: _buildMetricTile(
                     context,
-                    '7-Day Dhikr',
+                    lang.translate('dashboard_week_dhikr'),
                     dhikrHistory.fold(0, (sum, item) => sum + item).toString(),
                     Colors.teal,
                   ),
@@ -67,7 +63,7 @@ class DashboardView extends StatelessWidget {
                 Expanded(
                   child: _buildMetricTile(
                     context,
-                    'All-Time Dhikr',
+                    lang.translate('dashboard_total_dhikr'),
                     totalDhikr.toString(),
                     Colors.blue,
                   ),
@@ -76,13 +72,13 @@ class DashboardView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Last 7 Days Activity',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          Text(
+            lang.translate('dashboard_activity_title'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            'Teal shows daily dhikr counts. Orange shows pending qadha snapshot for that day.',
+            lang.translate('dashboard_activity_subtitle'),
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
@@ -104,9 +100,7 @@ class DashboardView extends StatelessWidget {
                   titlesData: FlTitlesData(
                     topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: true, reservedSize: 28),
-                    ),
+                    leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28)),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
@@ -184,10 +178,7 @@ class DashboardView extends StatelessWidget {
         children: [
           Text(title, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
-          ),
+          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );
