@@ -51,12 +51,14 @@ class _NotesListViewState extends State<NotesListView> {
                         for (final folder in folders)
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
-                            child: InputChip(
-                              label: Text(folder.name),
-                              selected: folder.id == _selectedFolderId,
-                              onSelected: (_) => setState(() => _selectedFolderId = folder.id),
-                              onPressed: () => setState(() => _selectedFolderId = folder.id),
+                            child: GestureDetector(
                               onLongPress: () => _showFolderDialog(context, ctrl, existingFolder: folder),
+                              child: InputChip(
+                                label: Text(folder.name),
+                                selected: folder.id == _selectedFolderId,
+                                onSelected: (_) => setState(() => _selectedFolderId = folder.id),
+                                onPressed: () => setState(() => _selectedFolderId = folder.id),
+                              ),
                             ),
                           ),
                       ],
