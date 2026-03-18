@@ -1,7 +1,6 @@
-// 📂 File: lib/features/prayer/prayer_view.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'prayer_controller.dart';
 import '../../core/localization/app_localizations.dart';
 
@@ -18,132 +17,140 @@ class PrayerView extends StatelessWidget {
         title: Text(lang.translate('tab_prayer')),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          // തീയതി മാറ്റാനുള്ള സംവിധാനം (< Date >)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios),
-                  onPressed: () => ctrl.changeDate(-1),
-                ),
-                Text(
-                  ctrl.formattedDate,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_forward_ios),
-                  onPressed: () => ctrl.changeDate(1),
-                ),
-              ],
-            ),
-          ),
-          const Divider(),
-          
-          Expanded(
-            child: ListView(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('Fardh (Obligatory) Prayers', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                ),
-                // 5 വഖ്ത് നിസ്കാരങ്ങൾ
-                ...ctrl.defaultPrayers.keys.map((prayer) {
-                  return ListTile(
-                    title: Text(prayer, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    trailing: DropdownButton<String>(
-                      value: ctrl.defaultPrayers[prayer] == 'None' ? null : ctrl.defaultPrayers[prayer],
-                      hint: const Text('Status'),
-                      items: ['Ada', 'Qadha', 'Missed'].map((String val) {
-                        return DropdownMenuItem(value: val, child: Text(val));
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) ctrl.updateDefaultPrayer(prayer, val);
-                      },
-                    ),
-                  );
-                }),
-                
-                const Divider(),
-                const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('Sunnah (Custom) Prayers', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                ),
-                
-                // സുന്നത്ത് നിസ്കാരങ്ങളുടെ ലിസ്റ്റ് (3-ഡോട്ട് മെനുവോടെ)
-                if (ctrl.sunnahPrayers.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text('No custom prayers added.', style: TextStyle(fontStyle: FontStyle.italic)),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Missed Prayer Tracker',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                ...ctrl.sunnahPrayers.map((sunnah) {
-                  return CheckboxListTile(
-                    value: sunnah.isCompleted,
-                    onChanged: (val) => ctrl.toggleSunnahStatus(sunnah.id),
-                    title: Text(sunnah.name),
-                    subtitle: Text('${sunnah.rakah} Rakahs'),
-                    secondary: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                           _showAddEditSunnahDialog(context, ctrl, isEdit: true, existingId: sunnah.id, name: sunnah.name, rakah: sunnah.rakah);
-                        } else if (value == 'delete') {
-                           ctrl.deleteSunnahPrayer(sunnah.id);
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                        const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
-                      ],
-                    ),
-                  );
-                }),
-              ],
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddEditSunnahDialog(context, ctrl),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Sunnah'),
+            const SizedBox(height: 8),
+            Text(
+              'Only keep track of missed prayers that still need to be made up. Use + and - to update each prayer quickly.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: GridView.builder(
+                itemCount: PrayerController.prayerNames.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.15,
+                ),
+                itemBuilder: (context, index) {
+                  final prayer = PrayerController.prayerNames[index];
+                  final count = ctrl.countFor(prayer);
+                  return _PrayerCounterCard(
+                    prayer: prayer,
+                    count: count,
+                    onIncrement: () => ctrl.incrementMissedPrayer(prayer),
+                    onDecrement: () => ctrl.decrementMissedPrayer(prayer),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Total Pending Qadha',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${ctrl.getTotalPendingQadha()}',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  // സുന്നത്ത് ആഡ്/എഡിറ്റ് ചെയ്യാനുള്ള പോപ്പ്-അപ്പ്
-  void _showAddEditSunnahDialog(BuildContext context, PrayerController ctrl, {bool isEdit = false, String? existingId, String? name, int? rakah}) {
-    final nameCtrl = TextEditingController(text: name ?? '');
-    final rakahCtrl = TextEditingController(text: rakah?.toString() ?? '');
+class _PrayerCounterCard extends StatelessWidget {
+  const _PrayerCounterCard({
+    required this.prayer,
+    required this.count,
+    required this.onIncrement,
+    required this.onDecrement,
+  });
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(isEdit ? 'Edit Sunnah Prayer' : 'Add Sunnah Prayer'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Prayer Name')),
-            TextField(controller: rakahCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Number of Rakahs')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.isNotEmpty && rakahCtrl.text.isNotEmpty) {
-                int r = int.tryParse(rakahCtrl.text) ?? 2;
-                if (isEdit) {
-                  ctrl.editSunnahPrayer(existingId!, nameCtrl.text, r);
-                } else {
-                  ctrl.addSunnahPrayer(nameCtrl.text, r);
-                }
-                Navigator.pop(context);
-              }
-            },
-            child: Text(isEdit ? 'Save' : 'Add'),
+  final String prayer;
+  final int count;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            prayer,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const Spacer(),
+          Center(
+            child: Text(
+              '$count',
+              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onDecrement,
+                  icon: const Icon(Icons.remove),
+                  label: const Text('Minus'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onIncrement,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Plus'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

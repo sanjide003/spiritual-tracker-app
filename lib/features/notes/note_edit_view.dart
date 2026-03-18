@@ -1,7 +1,6 @@
-// 📂 File: lib/features/notes/note_edit_view.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'notes_controller.dart';
 
 class NoteEditView extends StatelessWidget {
@@ -19,10 +18,14 @@ class NoteEditView extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
-            onPressed: () {
-              if (titleCtrl.text.isNotEmpty) {
-                notesCtrl.addNote(titleCtrl.text, contentCtrl.text);
-                Navigator.pop(context);
+            onPressed: () async {
+              if (titleCtrl.text.isNotEmpty && contentCtrl.text.isNotEmpty) {
+                await notesCtrl.addNote(
+                  title: titleCtrl.text,
+                  type: 'text',
+                  content: contentCtrl.text,
+                );
+                if (context.mounted) Navigator.pop(context);
               }
             },
           )
