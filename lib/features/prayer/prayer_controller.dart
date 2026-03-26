@@ -32,16 +32,19 @@ class PrayerController extends ChangeNotifier {
   static const String _missedPrayerKey = 'missed_prayer_counts';
   static const String _dailyPendingQadhaKey = 'daily_pending_qadha_history';
   static const String _sunnahPrayersKey = 'sunnah_prayer_items';
+  static const String _introDismissedKey = 'prayer_tracker_intro_dismissed';
 
   final Box<Map> _defaultBox = Hive.box<Map>(DatabaseService.defaultPrayersBoxName);
   final Box<Map> _analyticsBox = Hive.box<Map>(DatabaseService.analyticsBoxName);
 
   Map<String, int> missedPrayerCounts = {for (final prayer in prayerNames) prayer: 0};
   List<Map<String, dynamic>> sunnahPrayerItems = const [];
+  bool isTrackerIntroVisible = true;
 
   PrayerController() {
     _loadMissedCounts();
     _loadSunnahPrayers();
+    _loadIntroVisibility();
     _recordTodaySnapshot();
   }
 
@@ -64,6 +67,12 @@ class PrayerController extends ChangeNotifier {
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
     sunnahPrayerItems = values;
+    notifyListeners();
+  }
+
+  void _loadIntroVisibility() {
+    final dismissed = _defaultBox.get(_introDismissedKey);
+    isTrackerIntroVisible = dismissed != true;
     notifyListeners();
   }
 
@@ -141,6 +150,35 @@ class PrayerController extends ChangeNotifier {
       ..add({'id': id, 'name': trimmedName, 'rakats': rakats, 'count': 0});
     sunnahPrayerItems = updated;
     await _persist();
+  }
+
+  Future<void> updateSunnahPrayer({
+    required String id,
+    required String name,
+    required int rakats,
+  }) async {
+    final index = sunnahPrayerItems.indexWhere((item) => item['id'] == id);
+    if (index == -1) return;
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty || rakats <= 0) return;
+
+    sunnahPrayerItems[index] = {
+      ...sunnahPrayerItems[index],
+      'name': trimmedName,
+      'rakats': rakats,
+    };
+    await _persist();
+  }
+
+  Future<void> deleteSunnahPrayer(String id) async {
+    sunnahPrayerItems = sunnahPrayerItems.where((item) => item['id'] != id).toList();
+    await _persist();
+  }
+
+  Future<void> dismissTrackerIntro() async {
+    isTrackerIntroVisible = false;
+    await _defaultBox.put(_introDismissedKey, true);
+    notifyListeners();
   }
 
   int getTotalPendingQadha() {
