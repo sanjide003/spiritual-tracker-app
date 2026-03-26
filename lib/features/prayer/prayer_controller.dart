@@ -1,90 +1,212 @@
-// 📂 File: lib/features/prayer/prayer_controller.dart
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../../core/models/app_models.dart';
+
+import '../../services/database_service.dart';
+
+class PrayerCounterItem {
+  const PrayerCounterItem({
+    required this.id,
+    required this.name,
+    required this.rakats,
+    required this.count,
+    required this.isSunnah,
+  });
+
+  final String id;
+  final String name;
+  final int rakats;
+  final int count;
+  final bool isSunnah;
+}
 
 class PrayerController extends ChangeNotifier {
-  DateTime selectedDate = DateTime.now();
-  final Box<Map> _defaultBox = Hive.box<Map>('defaultPrayersBox');
-  final Box<CustomPrayer> _sunnahBox = Hive.box<CustomPrayer>('prayersBox');
+  static const List<String> prayerNames = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+  static const Map<String, int> obligatoryPrayerRakats = {
+    'Fajr': 2,
+    'Dhuhr': 4,
+    'Asr': 4,
+    'Maghrib': 3,
+    'Isha': 4,
+  };
 
-  Map<String, String> defaultPrayers = {};
-  List<CustomPrayer> sunnahPrayers = [];
+  static const String _missedPrayerKey = 'missed_prayer_counts';
+  static const String _dailyPendingQadhaKey = 'daily_pending_qadha_history';
+  static const String _sunnahPrayersKey = 'sunnah_prayer_items';
+  static const String _introDismissedKey = 'prayer_tracker_intro_dismissed';
+
+  final Box<Map> _defaultBox = Hive.box<Map>(DatabaseService.defaultPrayersBoxName);
+  final Box<Map> _analyticsBox = Hive.box<Map>(DatabaseService.analyticsBoxName);
+
+  Map<String, int> missedPrayerCounts = {for (final prayer in prayerNames) prayer: 0};
+  List<Map<String, dynamic>> sunnahPrayerItems = const [];
+  bool isTrackerIntroVisible = true;
 
   PrayerController() {
-    _loadDataForDate();
+    _loadMissedCounts();
+    _loadSunnahPrayers();
+    _loadIntroVisibility();
+    _recordTodaySnapshot();
   }
 
-  String get dateKey => DateFormat('yyyy-MM-dd').format(selectedDate);
-  String get formattedDate => DateFormat('EEE, MMM d, yyyy').format(selectedDate);
-
-  void _loadDataForDate() {
-    // ലോക്കൽ ഡാറ്റാബേസിൽ നിന്ന് ഇന്നത്തെ ഡാറ്റ എടുക്കുന്നു
-    var savedPrayers = _defaultBox.get(dateKey);
-    if (savedPrayers != null) {
-      defaultPrayers = Map<String, String>.from(savedPrayers);
-    } else {
-      defaultPrayers = {'Fajr': 'None', 'Dhuhr': 'None', 'Asr': 'None', 'Maghrib': 'None', 'Isha': 'None'};
+  void _loadMissedCounts() {
+    final savedCounts = _defaultBox.get(_missedPrayerKey);
+    if (savedCounts != null) {
+      missedPrayerCounts = {
+        for (final prayer in prayerNames) prayer: (savedCounts[prayer] as int?) ?? 0,
+      };
     }
-    
-    sunnahPrayers = _sunnahBox.values.where((p) => p.date == dateKey).toList();
     notifyListeners();
   }
 
-  void changeDate(int days) {
-    selectedDate = selectedDate.add(Duration(days: days));
-    _loadDataForDate(); // പുതിയ തീയതിയിലെ ഡാറ്റ ലോഡ് ചെയ്യുന്നു
-  }
+  void _loadSunnahPrayers() {
+    final savedItems = _defaultBox.get(_sunnahPrayersKey);
+    if (savedItems == null) return;
 
-  void updateDefaultPrayer(String name, String status) {
-    defaultPrayers[name] = status;
-    _defaultBox.put(dateKey, defaultPrayers); // ഡാറ്റാബേസിൽ സേവ് ചെയ്യുന്നു
+    final values = (savedItems['items'] as List<dynamic>? ?? const <dynamic>[])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+    sunnahPrayerItems = values;
     notifyListeners();
   }
 
-  void addSunnahPrayer(String name, int rakah) {
-    final newPrayer = CustomPrayer(
-      id: DateTime.now().toString(), name: name, rakah: rakah, date: dateKey
+  void _loadIntroVisibility() {
+    final dismissed = _defaultBox.get(_introDismissedKey);
+    isTrackerIntroVisible = dismissed != true;
+    notifyListeners();
+  }
+
+  Future<void> _persist() async {
+    await _defaultBox.put(_missedPrayerKey, missedPrayerCounts);
+    await _defaultBox.put(_sunnahPrayersKey, {'items': sunnahPrayerItems});
+    await _recordTodaySnapshot();
+    notifyListeners();
+  }
+
+  int countFor(String prayer) => missedPrayerCounts[prayer] ?? 0;
+
+  List<PrayerCounterItem> get counterItems {
+    final obligatory = prayerNames.map(
+      (name) => PrayerCounterItem(
+        id: name,
+        name: name,
+        rakats: obligatoryPrayerRakats[name] ?? 0,
+        count: missedPrayerCounts[name] ?? 0,
+        isSunnah: false,
+      ),
     );
-    _sunnahBox.put(newPrayer.id, newPrayer);
-    _loadDataForDate();
+
+    final sunnah = sunnahPrayerItems.map(
+      (item) => PrayerCounterItem(
+        id: item['id'] as String? ?? '',
+        name: item['name'] as String? ?? '',
+        rakats: (item['rakats'] as num?)?.toInt() ?? 0,
+        count: (item['count'] as num?)?.toInt() ?? 0,
+        isSunnah: true,
+      ),
+    );
+
+    return [...obligatory, ...sunnah];
   }
 
-  void editSunnahPrayer(String id, String newName, int newRakah) {
-    var prayer = _sunnahBox.get(id);
-    if (prayer != null) {
-      prayer.name = newName;
-      prayer.rakah = newRakah;
-      prayer.save(); // Hive Auto Save
-      _loadDataForDate();
-    }
+  Future<void> incrementMissedPrayer(String prayer) async {
+    missedPrayerCounts[prayer] = countFor(prayer) + 1;
+    await _persist();
   }
 
-  void deleteSunnahPrayer(String id) {
-    _sunnahBox.delete(id);
-    _loadDataForDate();
+  Future<void> decrementMissedPrayer(String prayer) async {
+    final current = countFor(prayer);
+    if (current == 0) return;
+    missedPrayerCounts[prayer] = current - 1;
+    await _persist();
   }
 
-  void toggleSunnahStatus(String id) {
-    var prayer = _sunnahBox.get(id);
-    if (prayer != null) {
-      prayer.isCompleted = !prayer.isCompleted;
-      prayer.save();
-      _loadDataForDate();
-    }
+  Future<void> incrementSunnahPrayer(String id) async {
+    final index = sunnahPrayerItems.indexWhere((item) => item['id'] == id);
+    if (index == -1) return;
+    final current = (sunnahPrayerItems[index]['count'] as num?)?.toInt() ?? 0;
+    sunnahPrayerItems[index]['count'] = current + 1;
+    await _persist();
   }
 
-  // ഡാഷ്‌ബോർഡിന് വേണ്ടി ആകെ ബാക്കിയുള്ള ഖളാഅ് കണ്ടുപിടിക്കാൻ
+  Future<void> decrementSunnahPrayer(String id) async {
+    final index = sunnahPrayerItems.indexWhere((item) => item['id'] == id);
+    if (index == -1) return;
+    final current = (sunnahPrayerItems[index]['count'] as num?)?.toInt() ?? 0;
+    if (current == 0) return;
+    sunnahPrayerItems[index]['count'] = current - 1;
+    await _persist();
+  }
+
+  Future<void> addSunnahPrayer({
+    required String name,
+    required int rakats,
+  }) async {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty || rakats <= 0) return;
+
+    final id = 'sunnah_${DateTime.now().microsecondsSinceEpoch}';
+    final updated = List<Map<String, dynamic>>.from(sunnahPrayerItems)
+      ..add({'id': id, 'name': trimmedName, 'rakats': rakats, 'count': 0});
+    sunnahPrayerItems = updated;
+    await _persist();
+  }
+
+  Future<void> updateSunnahPrayer({
+    required String id,
+    required String name,
+    required int rakats,
+  }) async {
+    final index = sunnahPrayerItems.indexWhere((item) => item['id'] == id);
+    if (index == -1) return;
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty || rakats <= 0) return;
+
+    sunnahPrayerItems[index] = {
+      ...sunnahPrayerItems[index],
+      'name': trimmedName,
+      'rakats': rakats,
+    };
+    await _persist();
+  }
+
+  Future<void> deleteSunnahPrayer(String id) async {
+    sunnahPrayerItems = sunnahPrayerItems.where((item) => item['id'] != id).toList();
+    await _persist();
+  }
+
+  Future<void> dismissTrackerIntro() async {
+    isTrackerIntroVisible = false;
+    await _defaultBox.put(_introDismissedKey, true);
+    notifyListeners();
+  }
+
   int getTotalPendingQadha() {
-    int total = 0;
-    for (var val in _defaultBox.values) {
-      if (val is Map) {
-        val.forEach((key, status) {
-          if (status == 'Missed') total++;
-        });
-      }
-    }
-    return total;
+    return missedPrayerCounts.values.fold(0, (sum, count) => sum + count);
+  }
+
+  List<int> getLast7DaysPendingQadha() {
+    final history = Map<String, dynamic>.from(
+      _analyticsBox.get(_dailyPendingQadhaKey) ?? <String, dynamic>{},
+    );
+    return List<int>.generate(7, (index) {
+      final day = DateTime.now().subtract(Duration(days: 6 - index));
+      return (history[_dayKey(day)] as int?) ?? 0;
+    });
+  }
+
+  Future<void> _recordTodaySnapshot() async {
+    final history = Map<String, dynamic>.from(
+      _analyticsBox.get(_dailyPendingQadhaKey) ?? <String, dynamic>{},
+    );
+    history[_dayKey(DateTime.now())] = getTotalPendingQadha();
+    await _analyticsBox.put(_dailyPendingQadhaKey, history);
+  }
+
+  String _dayKey(DateTime value) {
+    final local = value.toLocal();
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    return '${local.year}-$month-$day';
   }
 }

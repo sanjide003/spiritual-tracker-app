@@ -2,8 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dhikr_controller.dart';
+
 import '../../core/localization/app_localizations.dart';
+import 'dhikr_controller.dart';
 
 class DhikrListView extends StatelessWidget {
   const DhikrListView({super.key});
@@ -18,7 +19,6 @@ class DhikrListView extends StatelessWidget {
         title: Text(lang.translate('tab_dhikr')),
         centerTitle: true,
         actions: [
-          // സെലക്ട് ചെയ്ത ദിക്ർ എഡിറ്റ്/ഡിലീറ്റ് ചെയ്യാനുള്ള 3 ഡോട്ട്
           if (ctrl.selectedDhikr != null)
             PopupMenuButton<String>(
               onSelected: (val) {
@@ -29,20 +29,25 @@ class DhikrListView extends StatelessWidget {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+                PopupMenuItem(value: 'edit', child: Text(lang.translate('dhikr_edit'))),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text(lang.translate('common_delete'), style: const TextStyle(color: Colors.red)),
+                ),
               ],
             )
         ],
       ),
       body: Column(
         children: [
-          // ഡ്രോപ്പ്-ഡൗൺ സെലക്ഷൻ
           if (ctrl.dhikrs.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: DropdownButtonFormField<String>(
-                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Select Dhikr'),
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: lang.translate('dhikr_select'),
+                ),
                 value: ctrl.selectedDhikrId,
                 items: ctrl.dhikrs.map((d) {
                   return DropdownMenuItem(value: d.id, child: Text(d.text));
@@ -52,14 +57,13 @@ class DhikrListView extends StatelessWidget {
                 },
               ),
             ),
-          
           Expanded(
             child: ctrl.dhikrs.isEmpty
-                ? const Center(child: Text('No Dhikr added yet. Tap + to add.'))
+                ? Center(child: Text(lang.translate('dhikr_empty')))
                 : GestureDetector(
-                    onTap: ctrl.increment, // സ്ക്രീനിൽ എവിടെ തൊട്ടാലും കൗണ്ട് കൂടും
+                    onTap: ctrl.increment,
                     child: Container(
-                      color: Colors.transparent, // മുഴുവൻ സ്ക്രീനും ക്ലിക്കബിൾ ആക്കാൻ
+                      color: Colors.transparent,
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -78,11 +82,18 @@ class DhikrListView extends StatelessWidget {
                               ),
                               child: Text(
                                 '${ctrl.selectedDhikr?.count ?? 0}',
-                                style: TextStyle(fontSize: 64, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 64,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 16),
-                            const Text('Tap anywhere to count', style: TextStyle(color: Colors.grey)),
+                            Text(
+                              lang.translate('dhikr_tap'),
+                              style: const TextStyle(color: Colors.grey),
+                            ),
                           ],
                         ),
                       ),
@@ -100,22 +111,29 @@ class DhikrListView extends StatelessWidget {
 
   void _showAddEditDialog(BuildContext context, DhikrController ctrl, {bool isEdit = false, String? id, String? text}) {
     final textCtrl = TextEditingController(text: text ?? '');
+    final lang = Provider.of<AppLanguageProvider>(context, listen: false);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isEdit ? 'Edit Dhikr' : 'Add New Dhikr'),
-        content: TextField(controller: textCtrl, decoration: const InputDecoration(hintText: 'Enter Dhikr text')),
+        title: Text(lang.translate(isEdit ? 'dhikr_edit' : 'dhikr_add_new')),
+        content: TextField(
+          controller: textCtrl,
+          decoration: InputDecoration(hintText: lang.translate('dhikr_hint')),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(lang.translate('common_cancel'))),
           ElevatedButton(
             onPressed: () {
               if (textCtrl.text.isNotEmpty) {
-                if (isEdit) ctrl.editDhikr(id!, textCtrl.text);
-                else ctrl.addDhikr(textCtrl.text);
+                if (isEdit) {
+                  ctrl.editDhikr(id!, textCtrl.text);
+                } else {
+                  ctrl.addDhikr(textCtrl.text);
+                }
                 Navigator.pop(context);
               }
             },
-            child: Text(isEdit ? 'Save' : 'Add'),
+            child: Text(lang.translate(isEdit ? 'common_save' : 'common_add')),
           )
         ],
       ),

@@ -1,10 +1,11 @@
 // 📂 File: lib/features/dashboard/dashboard_view.dart
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:fl_chart/fl_chart.dart'; // ഗ്രാഫിന് വേണ്ടി
+
 import '../../core/localization/app_localizations.dart';
-import '../prayer/prayer_controller.dart';
 import '../dhikr/dhikr_controller.dart';
+import '../prayer/prayer_controller.dart';
 
 class DashboardView extends StatelessWidget {
   const DashboardView({super.key});
@@ -15,57 +16,132 @@ class DashboardView extends StatelessWidget {
     final prayerCtrl = Provider.of<PrayerController>(context);
     final dhikrCtrl = Provider.of<DhikrController>(context);
 
-    // ഡാറ്റാബേസിൽ നിന്നുള്ള ലൈവ് വിവരങ്ങൾ
-    int pendingQadha = prayerCtrl.getTotalPendingQadha();
-    int totalDhikr = dhikrCtrl.getTotalDhikrCount();
+    final pendingQadha = prayerCtrl.getTotalPendingQadha();
+    final todayDhikr = dhikrCtrl.getTodayDhikrCount();
+    final totalDhikr = dhikrCtrl.getTotalDhikrCount();
+    final dhikrHistory = dhikrCtrl.getLast7DaysCounts();
+    final qadhaHistory = prayerCtrl.getLast7DaysPendingQadha();
+    final labels = dhikrCtrl.getLast7DayLabels(lang.currentLanguage);
+
+    final chartMax = [...dhikrHistory, ...qadhaHistory, 1].reduce((a, b) => a > b ? a : b).toDouble() + 2;
 
     return Scaffold(
       appBar: AppBar(title: Text(lang.translate('tab_dashboard')), centerTitle: true),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Your Spiritual Summary', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            Row(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            lang.translate('dashboard_summary_title'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildSummaryCard(context, lang.translate('dashboard_pending_qadha'), '$pendingQadha', Colors.orange),
+              const SizedBox(width: 16),
+              _buildSummaryCard(context, lang.translate('dashboard_today_dhikr'), '$todayDhikr', Colors.teal),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
               children: [
-                _buildSummaryCard(context, 'Pending Qadha', '$pendingQadha', Colors.orange),
-                const SizedBox(width: 16),
-                _buildSummaryCard(context, 'Total Dhikr', '$totalDhikr', Colors.teal),
+                Expanded(
+                  child: _buildMetricTile(
+                    context,
+                    lang.translate('dashboard_week_dhikr'),
+                    dhikrHistory.fold(0, (sum, item) => sum + item).toString(),
+                    Colors.teal,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMetricTile(
+                    context,
+                    lang.translate('dashboard_total_dhikr'),
+                    totalDhikr.toString(),
+                    Colors.blue,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 32),
-            const Text('Activity Graph', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                // fl_chart ഉപയോഗിച്ചുള്ള യഥാർത്ഥ ഗ്രാഫ്
-                child: BarChart(
-                  BarChartData(
-                    alignment: BarChartAlignment.spaceAround,
-                    barGroups: [
-                      BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: 8, color: Colors.teal)]),
-                      BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: 10, color: Colors.teal)]),
-                      BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: 14, color: Colors.teal)]),
-                      BarChartGroupData(x: 4, barRods: [BarChartRodData(toY: 15, color: Colors.teal)]),
-                      BarChartGroupData(x: 5, barRods: [BarChartRodData(toY: 13, color: Colors.teal)]),
-                      BarChartGroupData(x: 6, barRods: [BarChartRodData(toY: 10, color: Colors.teal)]),
-                      BarChartGroupData(x: 7, barRods: [BarChartRodData(toY: totalDhikr.toDouble() / 10, color: Colors.orange)]), // ഇന്നത്തെ പ്രോഗ്രസ്
-                    ],
-                    titlesData: const FlTitlesData(leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false))),
-                    borderData: FlBorderData(show: false),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            lang.translate('dashboard_activity_title'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            lang.translate('dashboard_activity_subtitle'),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 280,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 24, 12, 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: chartMax,
+                  barTouchData: BarTouchData(enabled: true),
+                  gridData: const FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
+                  titlesData: FlTitlesData(
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 28)),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          final index = value.toInt();
+                          if (index < 0 || index >= labels.length) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(labels[index]),
+                          );
+                        },
+                      ),
+                    ),
                   ),
+                  barGroups: List.generate(7, (index) {
+                    return BarChartGroupData(
+                      x: index,
+                      barsSpace: 4,
+                      barRods: [
+                        BarChartRodData(
+                          toY: dhikrHistory[index].toDouble(),
+                          color: Colors.teal,
+                          width: 10,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        BarChartRodData(
+                          toY: qadhaHistory[index].toDouble(),
+                          color: Colors.orange,
+                          width: 10,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    );
+                  }),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -75,7 +151,9 @@ class DashboardView extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.5)),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.5)),
         ),
         child: Column(
           children: [
@@ -84,6 +162,24 @@ class DashboardView extends StatelessWidget {
             Text(count, style: TextStyle(fontSize: 32, color: color, fontWeight: FontWeight.bold)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMetricTile(BuildContext context, String title, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+        ],
       ),
     );
   }
