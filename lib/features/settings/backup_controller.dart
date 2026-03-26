@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis_auth/googleapis_auth.dart';
@@ -175,7 +176,7 @@ class BackupController extends ChangeNotifier {
             (file) => DriveBackupItem(
               id: file.id!,
               name: file.name!,
-              sizeBytes: file.size?.toInt() ?? 0,
+              sizeBytes: int.tryParse(file.size ?? '') ?? 0,
               modifiedTime: file.modifiedTime,
             ),
           )
