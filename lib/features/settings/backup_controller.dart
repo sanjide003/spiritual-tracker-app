@@ -318,6 +318,11 @@ class BackupController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
+  void dispose() {
+    unawaited(_resetTransferResources());
+    super.dispose();
+  }
 
   void _setStatus(String key, [Map<String, String> args = const {}]) {
     statusKey = key;

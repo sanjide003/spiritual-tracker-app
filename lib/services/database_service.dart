@@ -138,6 +138,12 @@ class DatabaseService {
     }
 
     final payload = jsonDecode(utf8.decode(backupEntry.content as List<int>)) as Map<String, dynamic>;
+    final notesPayload = _listOfMaps(payload['notes']);
+    final foldersPayload = _listOfMaps(payload['folders']);
+    final dhikrsPayload = _listOfMaps(payload['dhikrs']);
+    final prayersPayload = _mapPayload(payload['prayers']);
+    final analyticsPayload = _mapPayload(payload['analytics']);
+    final settingsPayload = _mapPayload(payload['settings']);
     final notesBox = Hive.box<NoteItem>(notesBoxName);
     final foldersBox = Hive.box<NoteFolder>(noteFoldersBoxName);
     final dhikrsBox = Hive.box<CustomDhikr>(dhikrsBoxName);
@@ -167,16 +173,14 @@ class DatabaseService {
 
     for (final entry in archive) {
       if (!entry.isFile || entry.name == backupJsonName) continue;
+      if (!entry.name.startsWith('$notesStorageDirectoryName/')) continue;
       final outputPath = p.join(appDir.path, entry.name);
       final outputFile = File(outputPath);
       await outputFile.parent.create(recursive: true);
       await outputFile.writeAsBytes(entry.content as List<int>);
     }
 
-    final folders = (payload['folders'] as List<dynamic>? ?? <dynamic>[])
-        .map((raw) => Map<String, dynamic>.from(raw as Map))
-        .toList();
-    for (final folder in folders) {
+    for (final folder in foldersPayload) {
       final item = NoteFolder(
         id: folder['id'] as String? ?? '',
         name: folder['name'] as String? ?? 'Folder',
@@ -184,10 +188,7 @@ class DatabaseService {
       await foldersBox.put(item.id, item);
     }
 
-    final notes = (payload['notes'] as List<dynamic>? ?? <dynamic>[])
-        .map((raw) => Map<String, dynamic>.from(raw as Map))
-        .toList();
-    for (final note in notes) {
+    for (final note in notesPayload) {
       final item = NoteItem(
         id: note['id'] as String? ?? '',
         title: note['title'] as String? ?? '',
@@ -199,10 +200,7 @@ class DatabaseService {
       await notesBox.put(item.id, item);
     }
 
-    final dhikrs = (payload['dhikrs'] as List<dynamic>? ?? <dynamic>[])
-        .map((raw) => Map<String, dynamic>.from(raw as Map))
-        .toList();
-    for (final dhikr in dhikrs) {
+    for (final dhikr in dhikrsPayload) {
       final item = CustomDhikr(
         id: dhikr['id'] as String? ?? '',
         text: dhikr['text'] as String? ?? '',
@@ -211,18 +209,21 @@ class DatabaseService {
       await dhikrsBox.put(item.id, item);
     }
 
-    final prayers = Map<String, dynamic>.from(payload['prayers'] as Map? ?? <String, dynamic>{});
-    for (final entry in prayers.entries) {
-      await prayerBox.put(entry.key, Map<String, dynamic>.from(entry.value as Map));
+    for (final entry in prayersPayload.entries) {
+      final raw = entry.value;
+      if (raw is Map) {
+        await prayerBox.put(entry.key, Map<String, dynamic>.from(raw));
+      }
     }
 
-    final restoredAnalytics = Map<String, dynamic>.from(payload['analytics'] as Map? ?? <String, dynamic>{});
-    for (final entry in restoredAnalytics.entries) {
-      await analyticsBox.put(entry.key, Map<String, dynamic>.from(entry.value as Map));
+    for (final entry in analyticsPayload.entries) {
+      final raw = entry.value;
+      if (raw is Map) {
+        await analyticsBox.put(entry.key, Map<String, dynamic>.from(raw));
+      }
     }
 
-    final restoredSettings = Map<String, dynamic>.from(payload['settings'] as Map? ?? <String, dynamic>{});
-    for (final entry in restoredSettings.entries) {
+    for (final entry in settingsPayload.entries) {
       await settingsBox.put(entry.key, entry.value);
     }
     for (final entry in previousBackupMetadata.entries) {
@@ -230,5 +231,15 @@ class DatabaseService {
         await settingsBox.put(entry.key, entry.value);
       }
     }
+  }
+
+  static List<Map<String, dynamic>> _listOfMaps(dynamic value) {
+    final list = value as List<dynamic>? ?? <dynamic>[];
+    return list.whereType<Map>().map((raw) => Map<String, dynamic>.from(raw)).toList();
+  }
+
+  static Map<String, dynamic> _mapPayload(dynamic value) {
+    final map = value as Map? ?? <String, dynamic>{};
+    return Map<String, dynamic>.from(map);
   }
 }
